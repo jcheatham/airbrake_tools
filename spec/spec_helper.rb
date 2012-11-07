@@ -1,0 +1,1 @@
+require "airbrake_tools"
