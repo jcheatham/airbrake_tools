@@ -1,3 +1,5 @@
+require 'yaml'
+
 ROOT = File.expand_path('../../', __FILE__)
 
 describe "airbrake-tools" do
@@ -11,6 +13,8 @@ describe "airbrake-tools" do
   def airbrake_tools(args, options={})
     run "#{ROOT}/bin/airbrake-tools #{args}", options
   end
+
+  let(:config) { YAML.load(File.read("spec/fixtures.yml")) }
 
   before do
     Dir.chdir ROOT
@@ -38,4 +42,11 @@ describe "airbrake-tools" do
     end
   end
 
+  describe "hot" do
+    it "kinda works" do
+      output = airbrake_tools("#{config["subdomain"]} #{config["auth_token"]}")
+      output.should =~ /#\d+\s+\d+\.\d+\/hour\s+\d+:total/
+    end
+  end
 end
+

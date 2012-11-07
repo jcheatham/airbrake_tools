@@ -1,25 +1,67 @@
 require "airbrake_tools/version"
+require "airbrake-api"
 
 module AirbrakeTools
   class << self
     def cli(argv)
       options = extract_options(argv)
 
-      subdomain, key = argv
-      if subdomain.to_s.empty? || key.to_s.empty?
+      AirbrakeAPI.account = ARGV[0]
+      AirbrakeAPI.auth_token = ARGV[1]
+      AirbrakeAPI.secure = true
+
+      if AirbrakeAPI.account.to_s.empty? || AirbrakeAPI.auth_token.to_s.empty?
         puts "Usage instructions: airbrake-tools --help"
         return 1
       end
 
-      hot(subdomain, key, options) || 0
+      hot(options) || 0
     end
 
-    def hot(subdomain, key, options)
-      puts "Calling hot with #{subdomain}, #{key}, #{options.inspect}"
+    def hot(options)
+      puts "Calling hot with #{AirbrakeAPI.account}, #{AirbrakeAPI.auth_token}, #{options.inspect}"
+
+      pages = 1
+
+      errors = []
+      pages.times do |i|
+        errors.concat (AirbrakeAPI.errors(:page => i+1) || []).select{|e| e.rails_env == "production" }
+      end
+
+      errors = Parallel.map(errors, :in_threads => 10) do |error|
+        begin
+          notices = AirbrakeAPI.notices(error.id, :pages => 1, :raw => true).compact
+          print "."
+          [error, notices]
+        rescue Faraday::Error::ParsingError
+          $stderr.puts "Ignoring #{summary(error)}, got 500 from http://#{AirbrakeAPI.account}.airbrake.io/errors/#{error.id}"
+        end
+      end.compact
+
+      $stderr.puts
+
+      errors.sort_by{|e,n| frequency(n) }.reverse.each_with_index do |(error, notices), index|
+        puts "##{(index+1).to_s.ljust(2)} #{frequency(notices).to_s.rjust(8)}/hour #{error.notices_count.to_s.rjust(6)}:total #{sparkline(notices, :slots => 60, :interval => 60)}"
+        puts " --> id: #{error.id} -- first: #{error.created_at} -- #{error.error_class} -- #{error.error_message}"
+      end
+
       return 0
     end
 
     private
+
+    def frequency(notices)
+      hour = 60 * 60
+      sum_of_ages = notices.map { |n| Time.now - n.created_at }.inject(&:+)
+      average_age = sum_of_ages / notices.size
+      time_to_error = average_age / notices.size
+      rate = 1 / time_to_error
+      (rate * hour).round(1)
+    end
+
+    def summary(error)
+      "id:#{error.id} -- first:#{error.created_at} -- #{error.error_class} -- #{error.error_message}"
+    end
 
     def extract_options(argv)
       options = {
@@ -29,7 +71,8 @@ module AirbrakeTools
             Get the hotest airbrake errors
 
             Usage:
-                airbrake-tools subdomain key [options]
+                airbrake-tools subdomain token [options]
+                  token: go to airbrake -> settings, copy your auth token
 
             Options:
         BANNER
@@ -54,5 +97,21 @@ module AirbrakeTools
     def run!(command)
       raise "Command failed #{command}" unless run(command).first
     end
+
+    def sparkline_data(notices, options)
+      last = notices.last.created_at
+      now = Time.now
+      Array.new(options[:slots]).each_with_index.map do |_, i|
+        slot_end = now - (i * options[:interval])
+        slot_start = slot_end - 1 * options[:interval]
+        next if last > slot_end # do not show empty lines when we actually have no data
+        notices.select { |n| n.created_at.between?(slot_start, slot_end) }.size
+      end
+    end
+
+    def sparkline(notices, options)
+      `#{File.expand_path('../../spark.sh',__FILE__)} #{sparkline_data(notices, options).join(" ")}`.strip
+    end
+
   end
 end
