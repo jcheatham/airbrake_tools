@@ -3,6 +3,7 @@ require "airbrake-api"
 
 module AirbrakeTools
   class << self
+
     def cli(argv)
       options = extract_options(argv)
 
@@ -15,48 +16,49 @@ module AirbrakeTools
         return 1
       end
 
-      hot(options) || 0
+      hot_errors = hot(options)
+      print_errors(hot_errors)
+      return 0
     end
 
-    def hot(options)
-      puts "Calling hot with #{AirbrakeAPI.account}, #{AirbrakeAPI.auth_token}, #{options.inspect}"
+    def hot(options = {})
+      puts "Retrieving 'hot' with #{AirbrakeAPI.account}, #{AirbrakeAPI.auth_token}"
 
-      pages = 1
-
+      pages = (options[:pages] || 1).to_i
       errors = []
       pages.times do |i|
-        errors.concat (AirbrakeAPI.errors(:page => i+1) || []).select{|e| e.rails_env == "production" }
+        errors.concat(AirbrakeAPI.errors(:page => i+1) || [])
       end
+      errors.select!{|e| e.rails_env == "production" }
+      # puts "errors #{errors}"
 
       errors = Parallel.map(errors, :in_threads => 10) do |error|
         begin
           notices = AirbrakeAPI.notices(error.id, :pages => 1, :raw => true).compact
           print "."
-          [error, notices]
+          [error, notices] + frequency(notices)
         rescue Faraday::Error::ParsingError
           $stderr.puts "Ignoring #{summary(error)}, got 500 from http://#{AirbrakeAPI.account}.airbrake.io/errors/#{error.id}"
         end
       end.compact
 
-      $stderr.puts
+      errors.sort_by{|e,n,f,d| f }.reverse
+    end
 
-      errors.sort_by{|e,n| frequency(n) }.reverse.each_with_index do |(error, notices), index|
-        puts "##{(index+1).to_s.ljust(2)} #{frequency(notices).to_s.rjust(8)}/hour #{error.notices_count.to_s.rjust(6)}:total #{sparkline(notices, :slots => 60, :interval => 60)}"
-        puts " --> id: #{error.id} -- first: #{error.created_at} -- #{error.error_class} -- #{error.error_message}"
+    def print_errors(hot)
+      hot.each_with_index do |(error, notices, rate, deviance), index|
+        puts "\n##{(index+1).to_s.ljust(2)} #{rate.round(2).to_s.rjust(6)}/hour +-#{deviance.round(2).to_s.ljust(5)} total:#{error.notices_count.to_s.ljust(8)} #{sparkline(notices, :slots => 60, :interval => 60).ljust(61)} -- #{summary(error)}"
       end
-
-      return 0
     end
 
     private
 
     def frequency(notices)
-      hour = 60 * 60
-      sum_of_ages = notices.map { |n| Time.now - n.created_at }.inject(&:+)
-      average_age = sum_of_ages / notices.size
-      time_to_error = average_age / notices.size
-      rate = 1 / time_to_error
-      (rate * hour).round(1)
+      mean   = notices.reduce(0){|sum,n| sum +  (Time.now - n.created_at) } / notices.size
+      sqrsum = notices.reduce(0){|sum,n| sum + ((Time.now - n.created_at) - mean)**2}
+      var    = sqrsum / notices.size.to_f
+      stddev = Math.sqrt(var)
+      [3600.0 / stddev, 3600.0 / var]
     end
 
     def summary(error)
@@ -80,22 +82,6 @@ module AirbrakeTools
         opts.on("-v", "--version", "Show Version"){ puts "airbrake-tools #{VERSION}"; exit }
       end.parse!(argv)
       options
-    end
-
-    def run(cmd)
-      all = ""
-      puts cmd
-      IO.popen(cmd) do |pipe|
-        while str = pipe.gets
-          all << str
-          puts str
-        end
-      end
-      [$?.success?, all]
-    end
-
-    def run!(command)
-      raise "Command failed #{command}" unless run(command).first
     end
 
     def sparkline_data(notices, options)
