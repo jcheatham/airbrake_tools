@@ -1,0 +1,5 @@
+#! /usr/bin/env ruby
+require 'optparse'
+$LOAD_PATH << File.join(File.dirname(__FILE__), '..', 'lib')
+require 'airbrake_tools'
+exit AirbrakeTools.cli(ARGV)
