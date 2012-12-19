@@ -16,8 +16,15 @@ module AirbrakeTools
         return 1
       end
 
-      hot_errors = hot(options)
-      print_errors(hot_errors)
+      case ARGV[2]
+      when "hot"
+        errors = hot(options)
+        print_errors(errors)
+      when "list"
+        list(options)
+      else
+        raise "Unknown command try hot/list"
+      end
       return 0
     end
 
@@ -27,7 +34,7 @@ module AirbrakeTools
       pages.times do |i|
         errors.concat(AirbrakeAPI.errors(:page => i+1) || [])
       end
-      errors.select!{|e| e.rails_env == "production" }
+      select_env!(errors, options)
 
       errors = Parallel.map(errors, :in_threads => 10) do |error|
         begin
@@ -42,7 +49,23 @@ module AirbrakeTools
       errors.sort_by{|e,n,f| f }.reverse
     end
 
+    def list(options)
+      page = 1
+      while errors = AirbrakeAPI.errors(:page => page)
+        select_env!(errors, options)
+        errors.each do |error|
+          puts "#{error.id} -- #{error.error_class} -- #{error.error_message} -- #{error.created_at}"
+        end
+        $stderr.puts "Page #{page} ----------\n"
+        page += 1
+      end
+    end
+
     private
+
+    def select_env!(errors, options)
+      errors.select!{|e| e.rails_env == options[:env] || "production" }
+    end
 
     def print_errors(hot)
       hot.each_with_index do |(error, notices, rate, deviance), index|
@@ -64,18 +87,21 @@ module AirbrakeTools
     end
 
     def extract_options(argv)
-      options = {
-      }
+      options = {}
       OptionParser.new do |opts|
         opts.banner = <<-BANNER.gsub(" "*12, "")
-            Get the hotest airbrake errors
+            Power tools for airbrake.
+
+            hot: list hottest errors
+            list: list errors 1-by-1 so you can e.g. grep -> search
 
             Usage:
-                airbrake-tools subdomain token [options]
-                  token: go to airbrake -> settings, copy your auth token
+                airbrake-tools subdomain auth-token command [options]
+                  auth-token: go to airbrake -> settings, copy your auth-token
 
             Options:
         BANNER
+        opts.on("-e ENV", "--environment ENV", String, "Only show errors from this environment (default: production)") {|s| options[:env] = s }
         opts.on("-h", "--help", "Show this.") { puts opts; exit }
         opts.on("-v", "--version", "Show Version"){ puts "airbrake-tools #{VERSION}"; exit }
       end.parse!(argv)
