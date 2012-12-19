@@ -10,6 +10,20 @@ Usage
 
     airbrake_tools your-account your-auth-token
 
+Output
+======
+```
+.............................
+#1     793.5/hour   2170:total ▁▂▂█
+ --> id: 51344729 -- first: 2012-06-25 15:47:11 UTC -- Mysql2::Error -- Mysql2::Error: Lost connection to MySQL server at 'reading initial communication packet', system error: 110
+#2     595.6/hour    648:total ▁▂▄█
+ --> id: 53991244 -- first: 2012-12-13 20:31:26 UTC -- ActiveRecord::RecordInvalid -- ActiveRecord::RecordInvalid: Validation failed: Requester is suspended.
+#3     458.0/hour 191840:total ▁▁▁▄█
+ --> id: 53864752 -- first: 2012-12-06 19:57:12 UTC -- SyntaxError -- [retrying processing mail at 782bcb63887c.eml] SyntaxError: unterminated quoted-word
+#4     315.3/hour   5184:total ▆▅▁▁▂▁▆▆█▅
+ --> id: 52897649 -- first: 2012-10-14 02:10:41 UTC -- Http::ClientError -- [The server responded with status 500]
+ ```
+
 Author
 ======
 [Jonathan Cheatham](http://github.com/jcheatham)<br/>

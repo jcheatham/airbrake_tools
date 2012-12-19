@@ -42,13 +42,13 @@ module AirbrakeTools
       errors.sort_by{|e,n,f| f }.reverse
     end
 
+    private
+
     def print_errors(hot)
       hot.each_with_index do |(error, notices, rate, deviance), index|
         puts "\n##{(index+1).to_s.ljust(2)} #{rate.round(2).to_s.rjust(6)}/hour total:#{error.notices_count.to_s.ljust(8)} #{sparkline(notices, :slots => 60, :interval => 60).ljust(61)} -- #{summary(error)}"
       end
     end
-
-    private
 
     def frequency(notices)
       hour = 60 * 60
