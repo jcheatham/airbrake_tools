@@ -1,0 +1,2 @@
+subdomain: xxx
+auth_token: yyy # NOT THE API KEY <-> got to airbrake, click on settings, copy auth_token

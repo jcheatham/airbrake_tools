@@ -45,7 +45,7 @@ describe "airbrake-tools" do
   describe "hot" do
     it "kinda works" do
       output = airbrake_tools("#{config["subdomain"]} #{config["auth_token"]}")
-      output.should =~ /#\d+\s+\d+\.\d+\/hour\s+\d+:total/
+      output.should =~ /#\d+\s+\d+\.\d+\/hour\s+total:\d+/
     end
   end
 end
