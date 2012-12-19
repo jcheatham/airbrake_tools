@@ -1,4 +1,3 @@
-# encoding: UTF-8
 require 'yaml'
 
 ROOT = File.expand_path('../../', __FILE__)
@@ -46,7 +45,7 @@ describe "airbrake-tools" do
   describe "hot" do
     it "kinda works" do
       output = airbrake_tools("#{config["subdomain"]} #{config["auth_token"]}")
-      output.should =~ /#\d+\s+\d+\.\d+\/hour\s+±\d+\.\d+\s+total:\d+/
+      output.should =~ /#\d+\s+\d+\.\d+\/hour\s+total:\d+/
     end
   end
 end

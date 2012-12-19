@@ -33,29 +33,30 @@ module AirbrakeTools
         begin
           notices = AirbrakeAPI.notices(error.id, :pages => 1, :raw => true).compact
           print "."
-          [error, notices] + frequency(notices)
+          [error, notices, frequency(notices)]
         rescue Faraday::Error::ParsingError
           $stderr.puts "Ignoring #{summary(error)}, got 500 from http://#{AirbrakeAPI.account}.airbrake.io/errors/#{error.id}"
         end
       end.compact
 
-      errors.sort_by{|e,n,f,d| f }.reverse
+      errors.sort_by{|e,n,f| f }.reverse
     end
 
     def print_errors(hot)
       hot.each_with_index do |(error, notices, rate, deviance), index|
-        puts "\n##{(index+1).to_s.ljust(2)} #{rate.round(2).to_s.rjust(6)}/hour ±#{deviance.round(2).to_s.ljust(5)} total:#{error.notices_count.to_s.ljust(8)} #{sparkline(notices, :slots => 60, :interval => 60).ljust(61)} -- #{summary(error)}"
+        puts "\n##{(index+1).to_s.ljust(2)} #{rate.round(2).to_s.rjust(6)}/hour total:#{error.notices_count.to_s.ljust(8)} #{sparkline(notices, :slots => 60, :interval => 60).ljust(61)} -- #{summary(error)}"
       end
     end
 
     private
 
     def frequency(notices)
-      mean   = notices.reduce(0){|sum,n| sum +  (Time.now - n.created_at) } / notices.size
-      sqrsum = notices.reduce(0){|sum,n| sum + ((Time.now - n.created_at) - mean)**2}
-      var    = sqrsum / notices.size.to_f
-      stddev = Math.sqrt(var)
-      [3600.0 / stddev, 3600.0 / var]
+      hour = 60 * 60
+      sum_of_ages = notices.map { |n| Time.now - n.created_at }.inject(&:+)
+      average_age = sum_of_ages / notices.size
+      time_to_error = average_age / notices.size
+      rate = 1 / time_to_error
+      (rate * hour).round(1)
     end
 
     def summary(error)
