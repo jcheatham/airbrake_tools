@@ -56,5 +56,13 @@ describe "airbrake-tools" do
       output.should =~ /^\d+/
     end
   end
+
+  describe "summary" do
+    it "kinda works" do
+      output = airbrake_tools("#{config["subdomain"]} #{config["auth_token"]} summary 51344729")
+      output.should include("last retrieved notice: ")
+      output.should include("last 2 hours: ")
+    end
+  end
 end
 
