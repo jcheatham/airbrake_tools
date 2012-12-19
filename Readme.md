@@ -8,7 +8,7 @@ Install
 Usage
 =====
 
-    CODE EXAMPLE
+    airbrake_tools your-account your-auth-token
 
 Author
 ======

@@ -1,9 +1,9 @@
+# encoding: UTF-8
 require "airbrake_tools/version"
 require "airbrake-api"
 
 module AirbrakeTools
   class << self
-
     def cli(argv)
       options = extract_options(argv)
 
@@ -22,15 +22,12 @@ module AirbrakeTools
     end
 
     def hot(options = {})
-      puts "Retrieving 'hot' with #{AirbrakeAPI.account}, #{AirbrakeAPI.auth_token}"
-
       pages = (options[:pages] || 1).to_i
       errors = []
       pages.times do |i|
         errors.concat(AirbrakeAPI.errors(:page => i+1) || [])
       end
       errors.select!{|e| e.rails_env == "production" }
-      # puts "errors #{errors}"
 
       errors = Parallel.map(errors, :in_threads => 10) do |error|
         begin
@@ -47,7 +44,7 @@ module AirbrakeTools
 
     def print_errors(hot)
       hot.each_with_index do |(error, notices, rate, deviance), index|
-        puts "\n##{(index+1).to_s.ljust(2)} #{rate.round(2).to_s.rjust(6)}/hour +-#{deviance.round(2).to_s.ljust(5)} total:#{error.notices_count.to_s.ljust(8)} #{sparkline(notices, :slots => 60, :interval => 60).ljust(61)} -- #{summary(error)}"
+        puts "\n##{(index+1).to_s.ljust(2)} #{rate.round(2).to_s.rjust(6)}/hour ±#{deviance.round(2).to_s.ljust(5)} total:#{error.notices_count.to_s.ljust(8)} #{sparkline(notices, :slots => 60, :interval => 60).ljust(61)} -- #{summary(error)}"
       end
     end
 
@@ -98,6 +95,5 @@ module AirbrakeTools
     def sparkline(notices, options)
       `#{File.expand_path('../../spark.sh',__FILE__)} #{sparkline_data(notices, options).join(" ")}`.strip
     end
-
   end
 end
