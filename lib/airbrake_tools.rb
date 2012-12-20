@@ -3,6 +3,8 @@ require "airbrake_tools/version"
 require "airbrake-api"
 
 module AirbrakeTools
+  DEFAULT_HOT_PAGES = 1
+  DEFAULT_SUMMARY_PAGES = 5
   DEFAULT_COMPARE_DEPTH = 7
   DEFAULT_ENVIRONMENT = "production"
 
@@ -34,7 +36,7 @@ module AirbrakeTools
     end
 
     def hot(options = {})
-      pages = (options[:pages] || 1).to_i
+      pages = (options[:pages] || DEFAULT_HOT_PAGES).to_i
       errors = []
       pages.times do |i|
         errors.concat(AirbrakeAPI.errors(:page => i+1) || [])
@@ -68,7 +70,7 @@ module AirbrakeTools
 
     def summary(error_id, options)
       compare_depth = options[:compare_depth] || DEFAULT_COMPARE_DEPTH
-      notices = AirbrakeAPI.notices(error_id, :pages => 5)
+      notices = AirbrakeAPI.notices(error_id, :pages => options[:pages] || DEFAULT_SUMMARY_PAGES)
 
       puts "last retrieved notice: #{((Time.now - notices.last.created_at) / (60 * 60)).round} hours ago at #{notices.last.created_at}"
       puts "last 2 hours:  #{sparkline(notices, :slots => 60, :interval => 120)}"
@@ -127,7 +129,8 @@ module AirbrakeTools
 
             Options:
         BANNER
-        opts.on("-c NUM", "--compare-depth NUM", Integer, "How deep to compare backtraces (default: #{DEFAULT_COMPARE_DEPTH})") {|s| options[:env] = s }
+        opts.on("-c NUM", "--compare-depth NUM", Integer, "How deep to compare backtraces in summary (default: #{DEFAULT_COMPARE_DEPTH})") {|s| options[:env] = s }
+        opts.on("-p NUM", "--pages NUM", Integer, "How maybe pages to iterate over (default: hot:#{DEFAULT_HOT_PAGES} summary:#{DEFAULT_SUMMARY_PAGES})") {|s| options[:env] = s }
         opts.on("-e ENV", "--environment ENV", String, "Only show errors from this environment (default: #{DEFAULT_ENVIRONMENT})") {|s| options[:env] = s }
         opts.on("-h", "--help", "Show this.") { puts opts; exit }
         opts.on("-v", "--version", "Show Version"){ puts "airbrake-tools #{VERSION}"; exit }
