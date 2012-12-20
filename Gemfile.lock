@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    airbrake_tools (0.0.1)
+    airbrake_tools (0.0.2)
 
 GEM
   remote: http://rubygems.org/
