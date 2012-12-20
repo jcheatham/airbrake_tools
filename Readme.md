@@ -85,5 +85,4 @@ Author
 ======
 [Jonathan Cheatham](http://github.com/jcheatham)<br/>
 coaxis@gmail.com<br/>
-License: MIT<br/>
-[![Build Status](https://travis-ci.org/jcheatham/airbrake_tools.png)](https://travis-ci.org/jcheatham/airbrake_tools)
+License: MIT
