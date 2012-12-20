@@ -44,8 +44,24 @@ describe "airbrake-tools" do
 
   describe "hot" do
     it "kinda works" do
-      output = airbrake_tools("#{config["subdomain"]} #{config["auth_token"]}")
+      output = airbrake_tools("#{config["subdomain"]} #{config["auth_token"]} hot")
       output.should =~ /#\d+\s+\d+\.\d+\/hour\s+total:\d+/
+    end
+  end
+
+  describe "list" do
+    it "kinda works" do
+      output = airbrake_tools("#{config["subdomain"]} #{config["auth_token"]} list")
+      output.should include("Page 1 ")
+      output.should =~ /^\d+/
+    end
+  end
+
+  describe "summary" do
+    it "kinda works" do
+      output = airbrake_tools("#{config["subdomain"]} #{config["auth_token"]} summary 51344729")
+      output.should include("last retrieved notice: ")
+      output.should include("last 2 hours: ")
     end
   end
 end
