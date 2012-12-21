@@ -1,4 +1,5 @@
 require 'yaml'
+require 'airbrake_tools'
 
 ROOT = File.expand_path('../../', __FILE__)
 
@@ -62,6 +63,24 @@ describe "airbrake-tools" do
       output = airbrake_tools("#{config["subdomain"]} #{config["auth_token"]} summary 51344729")
       output.should include("last retrieved notice: ")
       output.should include("last 2 hours: ")
+    end
+  end
+
+  describe "extract_options" do
+    it "finds nothing" do
+      AirbrakeTools.send(:extract_options, []).should == {}
+    end
+
+    it "finds pages" do
+      AirbrakeTools.send(:extract_options, ["--pages", "1"]).should == {:pages => 1}
+    end
+
+    it "finds env" do
+      AirbrakeTools.send(:extract_options, ["--environment", "xx"]).should == {:env => "xx"}
+    end
+
+    it "finds compare-depth" do
+      AirbrakeTools.send(:extract_options, ["--compare-depth", "1"]).should == {:compare_depth => 1}
     end
   end
 end
