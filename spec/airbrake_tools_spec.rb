@@ -66,6 +66,13 @@ describe "airbrake-tools" do
     end
   end
 
+  describe "newest" do
+    it "kinda works" do
+      output = airbrake_tools("#{config["subdomain"]} #{config["auth_token"]} new")
+      output.should =~ /#\d+\s+\d+\.\d+\/hour\s+total:\d+/
+    end
+  end
+
   describe ".extract_options" do
     it "finds nothing" do
       AirbrakeTools.send(:extract_options, []).should == {}

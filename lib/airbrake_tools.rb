@@ -4,6 +4,7 @@ require "airbrake-api"
 
 module AirbrakeTools
   DEFAULT_HOT_PAGES = 1
+  DEFAULT_NEW_PAGES = 1
   DEFAULT_SUMMARY_PAGES = 5
   DEFAULT_COMPARE_DEPTH = 7
   DEFAULT_ENVIRONMENT = "production"
@@ -23,37 +24,31 @@ module AirbrakeTools
 
       case ARGV[2]
       when "hot"
-        errors = hot(options)
-        print_errors(errors)
+        print_errors(hot(options))
       when "list"
         list(options)
       when "summary"
         summary(ARGV[3] || raise("Need error id"), options)
+      when "new"
+        print_errors(new(options))
       else
-        raise "Unknown command try hot/list/summary"
+        raise "Unknown command #{ARGV[2].inspect} try hot/new/list/summary"
       end
       return 0
     end
 
     def hot(options = {})
-      pages = (options[:pages] || DEFAULT_HOT_PAGES).to_i
-      errors = []
-      pages.times do |i|
-        errors.concat(AirbrakeAPI.errors(:page => i+1) || [])
-      end
-      select_env!(errors, options)
-
-      errors = Parallel.map(errors, :in_threads => 10) do |error|
-        begin
-          notices = AirbrakeAPI.notices(error.id, :pages => 1, :raw => true).compact
-          print "."
-          [error, notices, frequency(notices)]
-        rescue Faraday::Error::ParsingError
-          $stderr.puts "Ignoring #{hot_summary(error)}, got 500 from http://#{AirbrakeAPI.account}.airbrake.io/errors/#{error.id}"
-        end
-      end.compact
-
+      errors = errors_with_notices({:pages => DEFAULT_HOT_PAGES}.merge(options))
       errors.sort_by{|e,n,f| f }.reverse
+    end
+
+    def new(options = {})
+      errors = errors_with_notices({:pages => DEFAULT_NEW_PAGES}.merge(options))
+      errors.sort_by{|e,n,f| e.created_at }.reverse
+    end
+
+    def errors_with_notices(options)
+      add_notices_to_pages(errors_from_pages(options))
     end
 
     def list(options)
@@ -77,7 +72,11 @@ module AirbrakeTools
       puts "last day:      #{sparkline(notices, :slots => 24, :interval => 60 * 60)}"
 
       backtraces = notices.compact.select{|n| n.backtrace }.group_by do |notice|
-        notice.backtrace.first[1][0..compare_depth]
+        if notice.backtrace.is_a?(String) # no backtrace recorded...
+          []
+        else
+          notice.backtrace.first[1][0..compare_depth]
+        end
       end
 
       backtraces.sort_by{|_,notices| notices.size }.reverse.each_with_index do |(backtrace, notices), index|
@@ -89,6 +88,27 @@ module AirbrakeTools
     end
 
     private
+
+    def add_notices_to_pages(errors)
+      Parallel.map(errors, :in_threads => 10) do |error|
+        begin
+          notices = AirbrakeAPI.notices(error.id, :pages => 1, :raw => true).compact
+          print "."
+          [error, notices, frequency(notices)]
+        rescue Faraday::Error::ParsingError
+          $stderr.puts "Ignoring #{hot_summary(error)}, got 500 from http://#{AirbrakeAPI.account}.airbrake.io/errors/#{error.id}"
+        end
+      end.compact
+    end
+
+    def errors_from_pages(options)
+      errors = []
+      options[:pages].times do |i|
+        errors.concat(AirbrakeAPI.errors(:page => i+1) || [])
+      end
+      select_env!(errors, options)
+      errors
+    end
 
     def select_env!(errors, options)
       errors.select!{|e| e.rails_env == options[:env] || DEFAULT_ENVIRONMENT }
@@ -129,7 +149,7 @@ module AirbrakeTools
             Options:
         BANNER
         opts.on("-c NUM", "--compare-depth NUM", Integer, "How deep to compare backtraces in summary (default: #{DEFAULT_COMPARE_DEPTH})") {|s| options[:compare_depth] = s }
-        opts.on("-p NUM", "--pages NUM", Integer, "How maybe pages to iterate over (default: hot:#{DEFAULT_HOT_PAGES} summary:#{DEFAULT_SUMMARY_PAGES})") {|s| options[:pages] = s }
+        opts.on("-p NUM", "--pages NUM", Integer, "How maybe pages to iterate over (default: hot:#{DEFAULT_HOT_PAGES} new:#{DEFAULT_NEW_PAGES} summary:#{DEFAULT_SUMMARY_PAGES})") {|s| options[:pages] = s }
         opts.on("-e ENV", "--environment ENV", String, "Only show errors from this environment (default: #{DEFAULT_ENVIRONMENT})") {|s| options[:env] = s }
         opts.on("-h", "--help", "Show this.") { puts opts; exit }
         opts.on("-v", "--version", "Show Version"){ puts "airbrake-tools #{VERSION}"; exit }
