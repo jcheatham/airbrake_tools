@@ -1,4 +1,5 @@
 require 'yaml'
+require 'airbrake_tools'
 
 ROOT = File.expand_path('../../', __FILE__)
 
@@ -62,6 +63,46 @@ describe "airbrake-tools" do
       output = airbrake_tools("#{config["subdomain"]} #{config["auth_token"]} summary 51344729")
       output.should include("last retrieved notice: ")
       output.should include("last 2 hours: ")
+    end
+  end
+
+  describe "newest" do
+    it "kinda works" do
+      output = airbrake_tools("#{config["subdomain"]} #{config["auth_token"]} new")
+      output.should =~ /#\d+\s+\d+\.\d+\/hour\s+total:\d+/
+    end
+  end
+
+  describe ".extract_options" do
+    it "finds nothing" do
+      AirbrakeTools.send(:extract_options, []).should == {}
+    end
+
+    it "finds pages" do
+      AirbrakeTools.send(:extract_options, ["--pages", "1"]).should == {:pages => 1}
+    end
+
+    it "finds env" do
+      AirbrakeTools.send(:extract_options, ["--environment", "xx"]).should == {:env => "xx"}
+    end
+
+    it "finds compare-depth" do
+      AirbrakeTools.send(:extract_options, ["--compare-depth", "1"]).should == {:compare_depth => 1}
+    end
+  end
+
+  describe ".frequency" do
+    it "calculates for 0" do
+      AirbrakeTools.send(:frequency, []).should == 0
+    end
+
+    it "calculates for 1" do
+      AirbrakeTools.send(:frequency, [stub(:created_at => Time.now - (60*60))]).should == 1
+    end
+
+    it "calculates for n" do
+      # 3 per minute => 180/hour
+      AirbrakeTools.send(:frequency, [stub(:created_at => Time.now-60), stub(:created_at => Time.now-40), stub(:created_at => Time.now-20)]).should == 180
     end
   end
 end
