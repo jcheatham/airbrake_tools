@@ -100,13 +100,12 @@ module AirbrakeTools
       end
     end
 
+    # we only have a limited sample size, so we do not know how many errors occurred in total
     def frequency(notices)
-      hour = 60 * 60
-      sum_of_ages = notices.map { |n| Time.now - n.created_at }.inject(&:+)
-      average_age = sum_of_ages / notices.size
-      time_to_error = average_age / notices.size
-      rate = 1 / time_to_error
-      (rate * hour).round(1)
+      return 0 if notices.empty?
+      range = Time.now.to_f - notices.map{ |n| n.created_at.to_f }.min
+      errors_per_second = notices.size / range
+      (errors_per_second * 60 * 60).round(2) # errors_per_hour
     end
 
     def hot_summary(error)

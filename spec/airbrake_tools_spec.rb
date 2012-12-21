@@ -66,7 +66,7 @@ describe "airbrake-tools" do
     end
   end
 
-  describe "extract_options" do
+  describe ".extract_options" do
     it "finds nothing" do
       AirbrakeTools.send(:extract_options, []).should == {}
     end
@@ -81,6 +81,21 @@ describe "airbrake-tools" do
 
     it "finds compare-depth" do
       AirbrakeTools.send(:extract_options, ["--compare-depth", "1"]).should == {:compare_depth => 1}
+    end
+  end
+
+  describe ".frequency" do
+    it "calculates for 0" do
+      AirbrakeTools.send(:frequency, []).should == 0
+    end
+
+    it "calculates for 1" do
+      AirbrakeTools.send(:frequency, [stub(:created_at => Time.now - (60*60))]).should == 1
+    end
+
+    it "calculates for n" do
+      # 3 per minute => 180/hour
+      AirbrakeTools.send(:frequency, [stub(:created_at => Time.now-60), stub(:created_at => Time.now-40), stub(:created_at => Time.now-20)]).should == 180
     end
   end
 end
