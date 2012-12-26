@@ -9,4 +9,5 @@ Gem::Specification.new name, AirbrakeTools::VERSION do |s|
   s.homepage = "http://github.com/jcheatham/#{name}"
   s.files = `git ls-files`.split("\n")
   s.license = "MIT"
+  s.executables = ["airbrake-tools"]
 end
