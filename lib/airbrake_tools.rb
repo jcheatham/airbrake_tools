@@ -54,8 +54,7 @@ module AirbrakeTools
     def list(options)
       page = 1
       while errors = AirbrakeAPI.errors(:page => page)
-        select_env!(errors, options)
-        errors.each do |error|
+        select_env(errors, options).each do |error|
           puts "#{error.id} -- #{error.error_class} -- #{error.error_message} -- #{error.created_at}"
         end
         $stderr.puts "Page #{page} ----------\n"
@@ -106,12 +105,11 @@ module AirbrakeTools
       options[:pages].times do |i|
         errors.concat(AirbrakeAPI.errors(:page => i+1) || [])
       end
-      select_env!(errors, options)
-      errors
+      select_env(errors, options)
     end
 
-    def select_env!(errors, options)
-      errors.select!{|e| e.rails_env == options[:env] || DEFAULT_ENVIRONMENT }
+    def select_env(errors, options)
+      errors.select{|e| e.rails_env == (options[:env] || DEFAULT_ENVIRONMENT) }
     end
 
     def print_errors(hot)

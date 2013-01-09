@@ -105,5 +105,19 @@ describe "airbrake-tools" do
       AirbrakeTools.send(:frequency, [stub(:created_at => Time.now-60), stub(:created_at => Time.now-40), stub(:created_at => Time.now-20)]).should == 180
     end
   end
+
+  describe ".select_env" do
+    it "kicks out errors with wrong env" do
+      AirbrakeTools.send(:select_env, [stub(:rails_env => "master")], {}).should == []
+    end
+
+    it "keeps errors if they match given env" do
+      AirbrakeTools.send(:select_env, [stub(:rails_env => "master")], :env => "master").size.should == 1
+    end
+
+    it "keeps errors with right env" do
+      AirbrakeTools.send(:select_env, [stub(:rails_env => "production")], {}).size.should == 1
+    end
+  end
 end
 
