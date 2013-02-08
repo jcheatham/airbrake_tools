@@ -91,9 +91,10 @@ module AirbrakeTools
     def add_notices_to_pages(errors)
       Parallel.map(errors, :in_threads => 10) do |error|
         begin
-          notices = AirbrakeAPI.notices(error.id, :pages => 1, :raw => true).compact
+          pages = 1
+          notices = AirbrakeAPI.notices(error.id, :pages => pages, :raw => true).compact
           print "."
-          [error, notices, frequency(notices)]
+          [error, notices, frequency(notices, pages * AirbrakeAPI::Client::PER_PAGE)]
         rescue Faraday::Error::ParsingError
           $stderr.puts "Ignoring #{hot_summary(error)}, got 500 from http://#{AirbrakeAPI.account}.airbrake.io/errors/#{error.id}"
         end
@@ -119,10 +120,14 @@ module AirbrakeTools
     end
 
     # we only have a limited sample size, so we do not know how many errors occurred in total
-    def frequency(notices)
+    def frequency(notices, expected_notices)
       return 0 if notices.empty?
-      range = Time.now.to_f - notices.map{ |n| n.created_at.to_f }.min
-      errors_per_second = notices.size / range
+      range = if notices.size < expected_notices
+        60 * 60 # we got less notices then we wanted -> very few errors -> low frequency
+      else
+        Time.now - notices.map{ |n| n.created_at }.min
+      end
+      errors_per_second = notices.size / range.to_f
       (errors_per_second * 60 * 60).round(2) # errors_per_hour
     end
 
