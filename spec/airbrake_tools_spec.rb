@@ -93,16 +93,21 @@ describe "airbrake-tools" do
 
   describe ".frequency" do
     it "calculates for 0" do
-      AirbrakeTools.send(:frequency, []).should == 0
+      AirbrakeTools.send(:frequency, [], 0).should == 0
+      AirbrakeTools.send(:frequency, [], 1).should == 0
     end
 
     it "calculates for 1" do
-      AirbrakeTools.send(:frequency, [stub(:created_at => Time.now - (60*60))]).should == 1
+      AirbrakeTools.send(:frequency, [stub(:created_at => Time.now - (60*60))], 1).should == 1
     end
 
     it "calculates for n" do
       # 3 per minute => 180/hour
-      AirbrakeTools.send(:frequency, [stub(:created_at => Time.now-60), stub(:created_at => Time.now-40), stub(:created_at => Time.now-20)]).should == 180
+      AirbrakeTools.send(:frequency, [stub(:created_at => Time.now-60), stub(:created_at => Time.now-40), stub(:created_at => Time.now-20)], 3).should == 180
+    end
+
+    it "calculates low if notices are smaller then expected notices" do
+      AirbrakeTools.send(:frequency, [stub(:created_at => Time.now)], 10).should == 1
     end
   end
 
