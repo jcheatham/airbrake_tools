@@ -1,5 +1,6 @@
 # encoding: UTF-8
 require "airbrake_tools/version"
+require "airbrake_tools/png_grapher"
 require "airbrake-api"
 
 module AirbrakeTools
@@ -96,7 +97,7 @@ module AirbrakeTools
           print "."
           [error, notices, frequency(notices, pages * AirbrakeAPI::Client::PER_PAGE)]
         rescue Faraday::Error::ParsingError
-          $stderr.puts "Ignoring #{hot_summary(error)}, got 500 from http://#{AirbrakeAPI.account}.airbrake.io/errors/#{error.id}"
+          $stderr.puts "Ignoring #{error_summary(error)}, got 500 from http://#{AirbrakeAPI.account}.airbrake.io/errors/#{error.id}"
         end
       end.compact
     end
@@ -113,9 +114,9 @@ module AirbrakeTools
       errors.select{|e| e.rails_env == (options[:env] || DEFAULT_ENVIRONMENT) }
     end
 
-    def print_errors(hot)
-      hot.each_with_index do |(error, notices, rate, deviance), index|
-        puts "\n##{(index+1).to_s.ljust(2)} #{rate.round(2).to_s.rjust(6)}/hour total:#{error.notices_count.to_s.ljust(8)} #{sparkline(notices, :slots => 60, :interval => 60).ljust(61)} -- #{hot_summary(error)}"
+    def print_errors(errors)
+      errors.each_with_index do |(error, notices, rate, deviance), index|
+        puts "\n##{(index+1).to_s.ljust(2)} #{rate.round(2).to_s.rjust(6)}/hour total:#{error.notices_count.to_s.ljust(8)} #{sparkline(notices, :slots => 60, :interval => 60).ljust(61)} -- #{error_summary(error)}"
       end
     end
 
@@ -131,7 +132,7 @@ module AirbrakeTools
       (errors_per_second * 60 * 60).round(2) # errors_per_hour
     end
 
-    def hot_summary(error)
+    def error_summary(error)
       "id:#{error.id} -- first:#{error.created_at} -- #{error.error_class} -- #{error.error_message}"
     end
 
@@ -154,10 +155,20 @@ module AirbrakeTools
         opts.on("-c NUM", "--compare-depth NUM", Integer, "How deep to compare backtraces in summary (default: #{DEFAULT_COMPARE_DEPTH})") {|s| options[:compare_depth] = s }
         opts.on("-p NUM", "--pages NUM", Integer, "How maybe pages to iterate over (default: hot:#{DEFAULT_HOT_PAGES} new:#{DEFAULT_NEW_PAGES} summary:#{DEFAULT_SUMMARY_PAGES})") {|s| options[:pages] = s }
         opts.on("-e ENV", "--environment ENV", String, "Only show errors from this environment (default: #{DEFAULT_ENVIRONMENT})") {|s| options[:env] = s }
+        opts.on("-g", "--graph", "Generate a PNG graph per error") {|s| options[:graph] = true }
         opts.on("-h", "--help", "Show this.") { puts opts; exit }
         opts.on("-v", "--version", "Show Version"){ puts "airbrake-tools #{VERSION}"; exit }
       end.parse!(argv)
       options
+    end
+
+    def bucketize_notice_frequency(notices, num_buckets=60, range_left=nil, range_right=nil)
+      range_left ||= notices.first.created_at
+      range_right ||= notices.last.created_at + 1
+      interval = (range_left - range_right) / num_buckets
+      buckets = Array.new(num_buckets, 0)
+      notices.each{|n| buckets[((range_left - n.created_at) / interval)] += 1 if n.created_at > range_right }
+      buckets
     end
 
     def sparkline_data(notices, options)
