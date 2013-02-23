@@ -6,7 +6,7 @@ module AirbrakeTools
   DEFAULT_HOT_PAGES = 1
   DEFAULT_NEW_PAGES = 1
   DEFAULT_SUMMARY_PAGES = 5
-  DEFAULT_COMPARE_DEPTH = 7
+  DEFAULT_COMPARE_DEPTH_ADDITION = 3 # first line in project is 6 -> compare at 6 + x depth
   DEFAULT_ENVIRONMENT = "production"
 
   class << self
@@ -63,22 +63,13 @@ module AirbrakeTools
     end
 
     def summary(error_id, options)
-      compare_depth = options[:compare_depth] || DEFAULT_COMPARE_DEPTH
       notices = AirbrakeAPI.notices(error_id, :pages => options[:pages] || DEFAULT_SUMMARY_PAGES)
 
       puts "last retrieved notice: #{((Time.now - notices.last.created_at) / (60 * 60)).round} hours ago at #{notices.last.created_at}"
       puts "last 2 hours:  #{sparkline(notices, :slots => 60, :interval => 120)}"
       puts "last day:      #{sparkline(notices, :slots => 24, :interval => 60 * 60)}"
 
-      backtraces = notices.compact.select{|n| n.backtrace }.group_by do |notice|
-        if notice.backtrace.is_a?(String) # no backtrace recorded...
-          []
-        else
-          notice.backtrace.first[1][0..compare_depth]
-        end
-      end
-
-      backtraces.sort_by{|_,notices| notices.size }.reverse.each_with_index do |(backtrace, notices), index|
+      grouped_backtraces(notices, options).sort_by{|_,notices| notices.size }.reverse.each_with_index do |(backtrace, notices), index|
         puts "Trace #{index + 1}: occurred #{notices.size} times e.g. #{notices[0..5].map(&:id).join(", ")}"
         puts notices.first.error_message
         puts backtrace.map{|line| line.sub("[PROJECT_ROOT]/", "./") }
@@ -87,6 +78,38 @@ module AirbrakeTools
     end
 
     private
+
+    def grouped_backtraces(notices, options)
+      notices = notices.compact.select { |n| backtrace(n) }
+
+      compare_depth = if options[:compare_depth]
+        options[:compare_depth]
+      else
+        average_first_project_line(notices.map { |n| backtrace(n) }) +
+          DEFAULT_COMPARE_DEPTH_ADDITION
+      end
+
+      notices.group_by do |notice|
+        backtrace(notice)[0..compare_depth]
+      end
+    end
+
+    def backtrace(notice)
+      return if notice.backtrace.is_a?(String)
+      notice.backtrace.first[1]
+    end
+
+    def average_first_project_line(backtraces)
+      depths = backtraces.map { |backtrace| first_line_in_project(backtrace) }.compact
+      return 0 if depths.size == 0
+      depths.inject(:+) / depths.size
+    end
+
+    def first_line_in_project(backtrace)
+      backtrace.index do |line|
+        line.start_with?("[PROJECT_ROOT]") && !line.start_with?("[PROJECT_ROOT]/vendor/")
+      end
+    end
 
     def add_notices_to_pages(errors)
       Parallel.map(errors, :in_threads => 10) do |error|
@@ -151,7 +174,7 @@ module AirbrakeTools
 
             Options:
         BANNER
-        opts.on("-c NUM", "--compare-depth NUM", Integer, "How deep to compare backtraces in summary (default: #{DEFAULT_COMPARE_DEPTH})") {|s| options[:compare_depth] = s }
+        opts.on("-c NUM", "--compare-depth NUM", Integer, "How deep to compare backtraces in summary (default: first line in project + #{DEFAULT_COMPARE_DEPTH_ADDITION})") {|s| options[:compare_depth] = s }
         opts.on("-p NUM", "--pages NUM", Integer, "How maybe pages to iterate over (default: hot:#{DEFAULT_HOT_PAGES} new:#{DEFAULT_NEW_PAGES} summary:#{DEFAULT_SUMMARY_PAGES})") {|s| options[:pages] = s }
         opts.on("-e ENV", "--environment ENV", String, "Only show errors from this environment (default: #{DEFAULT_ENVIRONMENT})") {|s| options[:env] = s }
         opts.on("-h", "--help", "Show this.") { puts opts; exit }

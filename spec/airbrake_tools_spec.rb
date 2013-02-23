@@ -73,6 +73,38 @@ describe "airbrake-tools" do
     end
   end
 
+  describe ".average_first_project_line" do
+    it "is 0 for 0" do
+      AirbrakeTools.send(:average_first_project_line, []).should == 0
+    end
+
+    it "is 0 for no matching line" do
+      AirbrakeTools.send(:average_first_project_line, [["/usr/local/rvm/rubies/foo.rb"]]).should == 0
+    end
+
+    it "is the average of matching lines" do
+      gem = "/usr/local/rvm/foo.rb:123"
+      local = "[PROJECT_ROOT]/foo.rb:123"
+      AirbrakeTools.send(:average_first_project_line, [
+        [gem, local, local, local], # 1
+        [gem, gem, gem, local, gem], # 3
+        [gem, gem, gem, gem, gem, gem], # 0
+      ]).should == 2
+    end
+  end
+
+  describe ".first_line_in_project" do
+    it "finds first non-gem" do
+      AirbrakeTools.send(:first_line_in_project, [
+        "/usr/local/rvm/rubies/ruby-1.9.3-p125/lib/ruby/1.9.1/benchmark.rb:295:in `realtime'",
+        "[PROJECT_ROOT]/vendor/bundle/ruby/1.9.1/gems/activesupport-2.3.17/lib/active_support/core_ext/benchmark.rb:17:in `ms'",
+        "[PROJECT_ROOT]/vendor/bundle/ruby/1.9.1/gems/activerecord-2.3.17/lib/active_record/connection_adapters/abstract_adapter.rb:204:in `log'",
+        "[PROJECT_ROOT]/lib/foo.rb:36:in `action'",
+        "/usr/local/rvm/rubies/ruby-1.9.3-p125/lib/ruby/1.9.1/benchmark.rb:295:in `realtime'"
+      ]).should == 3
+    end
+  end
+
   describe ".extract_options" do
     it "finds nothing" do
       AirbrakeTools.send(:extract_options, []).should == {}
