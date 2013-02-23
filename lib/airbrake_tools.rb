@@ -8,6 +8,10 @@ module AirbrakeTools
   DEFAULT_SUMMARY_PAGES = 5
   DEFAULT_COMPARE_DEPTH_ADDITION = 3 # first line in project is 6 -> compare at 6 + x depth
   DEFAULT_ENVIRONMENT = "production"
+  COLORS = {
+    :gray => "\e[0;37m",
+    :clear => "\e[0m"
+  }
 
   class << self
     def cli(argv)
@@ -72,12 +76,22 @@ module AirbrakeTools
       grouped_backtraces(notices, options).sort_by{|_,notices| notices.size }.reverse.each_with_index do |(backtrace, notices), index|
         puts "Trace #{index + 1}: occurred #{notices.size} times e.g. #{notices[0..5].map(&:id).join(", ")}"
         puts notices.first.error_message
-        puts backtrace.map{|line| line.sub("[PROJECT_ROOT]/", "./") }
+        puts backtrace.map{|line| present_line(line) }
         puts ""
       end
     end
 
     private
+
+    def present_line(line)
+      color = :gray if $stdout.tty? && !custom_file?(line)
+      line = line.sub("[PROJECT_ROOT]/", "./")
+      if color
+        "#{COLORS.fetch(color)}#{line}#{COLORS.fetch(:clear)}"
+      else
+        line
+      end
+    end
 
     def grouped_backtraces(notices, options)
       notices = notices.compact.select { |n| backtrace(n) }
@@ -100,15 +114,15 @@ module AirbrakeTools
     end
 
     def average_first_project_line(backtraces)
-      depths = backtraces.map { |backtrace| first_line_in_project(backtrace) }.compact
+      depths = backtraces.map do |backtrace|
+        backtrace.index { |line| custom_file?(line) }
+      end.compact
       return 0 if depths.size == 0
       depths.inject(:+) / depths.size
     end
 
-    def first_line_in_project(backtrace)
-      backtrace.index do |line|
-        line.start_with?("[PROJECT_ROOT]") && !line.start_with?("[PROJECT_ROOT]/vendor/")
-      end
+    def custom_file?(line)
+      line.start_with?("[PROJECT_ROOT]") && !line.start_with?("[PROJECT_ROOT]/vendor/")
     end
 
     def add_notices_to_pages(errors)
