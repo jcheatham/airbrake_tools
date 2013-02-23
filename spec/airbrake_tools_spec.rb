@@ -4,72 +4,104 @@ require 'airbrake_tools'
 ROOT = File.expand_path('../../', __FILE__)
 
 describe "airbrake-tools" do
-  def run(command, options={})
-    result = `#{command} 2>&1`
-    message = (options[:fail] ? "SUCCESS BUT SHOULD FAIL" : "FAIL")
-    raise "[#{message}] #{result} [#{command}]" if $?.success? == !!options[:fail]
-    result
+  before { Dir.chdir ROOT }
+
+  describe "CLI" do
+    def run(command, options={})
+      result = `#{command} 2>&1`
+      message = (options[:fail] ? "SUCCESS BUT SHOULD FAIL" : "FAIL")
+      raise "[#{message}] #{result} [#{command}]" if $?.success? == !!options[:fail]
+      result
+    end
+
+    def airbrake_tools(args, options={})
+      run "#{ROOT}/bin/airbrake-tools #{args}", options
+    end
+
+    let(:config) { YAML.load(File.read("spec/fixtures.yml")) }
+
+    describe "basics" do
+      it "shows its usage without arguments" do
+        airbrake_tools("", :fail => true).should include("Usage")
+      end
+
+      it "shows its usage with -h" do
+        airbrake_tools("-h").should include("Usage")
+      end
+
+      it "shows its usage with --help" do
+        airbrake_tools("--help").should include("Usage")
+      end
+
+      it "shows its version with -v" do
+        airbrake_tools("-v").should =~ /^airbrake-tools \d+\.\d+\.\d+$/
+      end
+
+      it "shows its version with --version" do
+        airbrake_tools("-v").should =~ /^airbrake-tools \d+\.\d+\.\d+$/
+      end
+    end
+
+    describe "hot" do
+      it "kinda works" do
+        output = airbrake_tools("#{config["subdomain"]} #{config["auth_token"]} hot")
+        output.should =~ /#\d+\s+\d+\.\d+\/hour\s+total:\d+/
+      end
+    end
+
+    describe "list" do
+      it "kinda works" do
+        output = airbrake_tools("#{config["subdomain"]} #{config["auth_token"]} list")
+        output.should include("Page 1 ")
+        output.should =~ /^\d+/
+      end
+    end
+
+    describe "summary" do
+      it "kinda works" do
+        output = airbrake_tools("#{config["subdomain"]} #{config["auth_token"]} summary 51344729")
+        output.should include("last retrieved notice: ")
+        output.should include("last 2 hours: ")
+      end
+    end
+
+    describe "new" do
+      it "kinda works" do
+        output = airbrake_tools("#{config["subdomain"]} #{config["auth_token"]} new")
+        output.should =~ /#\d+\s+\d+\.\d+\/hour\s+total:\d+/
+      end
+    end
   end
 
-  def airbrake_tools(args, options={})
-    run "#{ROOT}/bin/airbrake-tools #{args}", options
-  end
-
-  let(:config) { YAML.load(File.read("spec/fixtures.yml")) }
-
-  before do
-    Dir.chdir ROOT
-  end
-
-  describe "basics" do
-    it "shows its usage without arguments" do
-      airbrake_tools("", :fail => true).should include("Usage")
+  describe ".average_first_project_line" do
+    it "is 0 for 0" do
+      AirbrakeTools.send(:average_first_project_line, []).should == 0
     end
 
-    it "shows its usage with -h" do
-      airbrake_tools("-h").should include("Usage")
+    it "is 0 for no matching line" do
+      AirbrakeTools.send(:average_first_project_line, [["/usr/local/rvm/rubies/foo.rb"]]).should == 0
     end
 
-    it "shows its usage with --help" do
-      airbrake_tools("--help").should include("Usage")
-    end
-
-    it "shows its version with -v" do
-      airbrake_tools("-v").should =~ /^airbrake-tools \d+\.\d+\.\d+$/
-    end
-
-    it "shows its version with --version" do
-      airbrake_tools("-v").should =~ /^airbrake-tools \d+\.\d+\.\d+$/
+    it "is the average of matching lines" do
+      gem = "/usr/local/rvm/foo.rb:123"
+      local = "[PROJECT_ROOT]/foo.rb:123"
+      AirbrakeTools.send(:average_first_project_line, [
+        [gem, local, local, local], # 1
+        [gem, gem, gem, local, gem], # 3
+        [gem, gem, gem, gem, gem, gem], # 0
+      ]).should == 2
     end
   end
 
-  describe "hot" do
-    it "kinda works" do
-      output = airbrake_tools("#{config["subdomain"]} #{config["auth_token"]} hot")
-      output.should =~ /#\d+\s+\d+\.\d+\/hour\s+total:\d+/
-    end
-  end
-
-  describe "list" do
-    it "kinda works" do
-      output = airbrake_tools("#{config["subdomain"]} #{config["auth_token"]} list")
-      output.should include("Page 1 ")
-      output.should =~ /^\d+/
-    end
-  end
-
-  describe "summary" do
-    it "kinda works" do
-      output = airbrake_tools("#{config["subdomain"]} #{config["auth_token"]} summary 51344729")
-      output.should include("last retrieved notice: ")
-      output.should include("last 2 hours: ")
-    end
-  end
-
-  describe "newest" do
-    it "kinda works" do
-      output = airbrake_tools("#{config["subdomain"]} #{config["auth_token"]} new")
-      output.should =~ /#\d+\s+\d+\.\d+\/hour\s+total:\d+/
+  describe ".first_line_in_project" do
+    it "finds first non-gem" do
+      AirbrakeTools.send(:first_line_in_project, [
+        "/usr/local/rvm/rubies/ruby-1.9.3-p125/lib/ruby/1.9.1/benchmark.rb:295:in `realtime'",
+        "[PROJECT_ROOT]/vendor/bundle/ruby/1.9.1/gems/activesupport-2.3.17/lib/active_support/core_ext/benchmark.rb:17:in `ms'",
+        "[PROJECT_ROOT]/vendor/bundle/ruby/1.9.1/gems/activerecord-2.3.17/lib/active_record/connection_adapters/abstract_adapter.rb:204:in `log'",
+        "[PROJECT_ROOT]/lib/foo.rb:36:in `action'",
+        "/usr/local/rvm/rubies/ruby-1.9.3-p125/lib/ruby/1.9.1/benchmark.rb:295:in `realtime'"
+      ]).should == 3
     end
   end
 
