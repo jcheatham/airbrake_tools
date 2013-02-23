@@ -85,7 +85,7 @@ module AirbrakeTools
 
     def present_line(line)
       color = :gray if $stdout.tty? && !custom_file?(line)
-      line = line.sub("[PROJECT_ROOT]/", "./")
+      line = line.sub("[PROJECT_ROOT]/", "")
       if color
         "#{COLORS.fetch(color)}#{line}#{COLORS.fetch(:clear)}"
       else
