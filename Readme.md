@@ -50,6 +50,7 @@ Shows all errors divided by pages
 
  - show details for 1 error (combines 150 notices)
  - show all different traces that caused this error (play with --compare-depth)
+ - shows blame for the line if it's in the project and you are running airrake-tools from the project root
 
 ```
 airbrake-tools your-account your-auth-token summary 51344729
@@ -63,7 +64,8 @@ Mysql2::Error: Lost connection to MySQL server at 'reading initial communication
 
 Trace 2: occurred 10 times e.g. 7145613107, 7145612108
 Mysql2::Error: Lost connection to MySQL server
-./mysql2/lib/mysql2/client.rb:58:in `disconnect'
+/usr/gems/mysql2/lib/mysql2/client.rb:58:in `disconnect'
+lib/foo.rb:58:in `bar' acc8204 (<jcheatham@example.com> 2012-11-06 18:45:10 -0800 )
 ...
 
 Trace 3: occurred 5 times e.g. 7145609979, 7145609161
