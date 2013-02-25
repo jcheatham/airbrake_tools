@@ -109,6 +109,15 @@ describe "airbrake-tools" do
   end
 
   describe ".present_line" do
+    before do
+      $stdout.stub(:tty?).and_return false
+    end
+
+    it "does not add colors" do
+      AirbrakeTools.send(:present_line, "[PROJECT_ROOT]/vendor/bundle/foo.rb:123").should_not include("\e[")
+      AirbrakeTools.send(:present_line, "[PROJECT_ROOT]/app/foo.rb:123").should_not include("\e[")
+    end
+
     context "on tty" do
       before do
         $stdout.stub(:tty?).and_return true
@@ -118,20 +127,18 @@ describe "airbrake-tools" do
         AirbrakeTools.send(:present_line, "[PROJECT_ROOT]/vendor/bundle/foo.rb:123").should include("\e[")
       end
 
-      it "shows plain for project files" do
+      it "does not add colors for project lines" do
         AirbrakeTools.send(:present_line, "[PROJECT_ROOT]/app/foo.rb:123").should_not include("\e[")
       end
     end
 
-    context "without tty" do
-      before do
-        $stdout.stub(:tty?).and_return false
-      end
+    it "adds blame if file exists" do
+      AirbrakeTools.send(:present_line, "[PROJECT_ROOT]/Gemfile:1 adasdsad").should ==
+        "Gemfile:1 adasdsad -- ^acc8204 (<jcheatham@zendesk.com> 2012-11-06 18:45:10 -0800 )"
+    end
 
-      it "shows gray any line" do
-        AirbrakeTools.send(:present_line, "[PROJECT_ROOT]/vendor/bundle/foo.rb:123").should_not include("\e[")
-        AirbrakeTools.send(:present_line, "[PROJECT_ROOT]/app/foo.rb:123").should_not include("\e[")
-      end
+    it "does not add blame to system files" do
+      AirbrakeTools.send(:present_line, "/etc/hosts:1 adasdsad").should == "/etc/hosts:1 adasdsad"
     end
   end
 
@@ -187,4 +194,3 @@ describe "airbrake-tools" do
     end
   end
 end
-
