@@ -1,4 +1,5 @@
 require 'yaml'
+require 'stringio'
 require 'airbrake_tools'
 
 ROOT = File.expand_path('../../', __FILE__)
@@ -93,15 +94,44 @@ describe "airbrake-tools" do
     end
   end
 
-  describe ".first_line_in_project" do
-    it "finds first non-gem" do
-      AirbrakeTools.send(:first_line_in_project, [
-        "/usr/local/rvm/rubies/ruby-1.9.3-p125/lib/ruby/1.9.1/benchmark.rb:295:in `realtime'",
-        "[PROJECT_ROOT]/vendor/bundle/ruby/1.9.1/gems/activesupport-2.3.17/lib/active_support/core_ext/benchmark.rb:17:in `ms'",
-        "[PROJECT_ROOT]/vendor/bundle/ruby/1.9.1/gems/activerecord-2.3.17/lib/active_record/connection_adapters/abstract_adapter.rb:204:in `log'",
-        "[PROJECT_ROOT]/lib/foo.rb:36:in `action'",
-        "/usr/local/rvm/rubies/ruby-1.9.3-p125/lib/ruby/1.9.1/benchmark.rb:295:in `realtime'"
-      ]).should == 3
+  describe ".custom_file?" do
+    it "is custom if it's not a library" do
+      AirbrakeTools.send(:custom_file?, "[PROJECT_ROOT]/app/foo.rb:123").should == true
+    end
+
+    it "is not custom if it's a system gem" do
+      AirbrakeTools.send(:custom_file?, "/usr/local/rvm/foo.rb:123").should == false
+    end
+
+    it "is not custom if it's a vendored gem" do
+      AirbrakeTools.send(:custom_file?, "[PROJECT_ROOT]/vendor/bundle/xxx.rb:123").should == false
+    end
+  end
+
+  describe ".present_line" do
+    context "on tty" do
+      before do
+        $stdout.stub(:tty?).and_return true
+      end
+
+      it "shows gray for vendor lines" do
+        AirbrakeTools.send(:present_line, "[PROJECT_ROOT]/vendor/bundle/foo.rb:123").should include("\e[")
+      end
+
+      it "shows plain for project files" do
+        AirbrakeTools.send(:present_line, "[PROJECT_ROOT]/app/foo.rb:123").should_not include("\e[")
+      end
+    end
+
+    context "without tty" do
+      before do
+        $stdout.stub(:tty?).and_return false
+      end
+
+      it "shows gray any line" do
+        AirbrakeTools.send(:present_line, "[PROJECT_ROOT]/vendor/bundle/foo.rb:123").should_not include("\e[")
+        AirbrakeTools.send(:present_line, "[PROJECT_ROOT]/app/foo.rb:123").should_not include("\e[")
+      end
     end
   end
 
