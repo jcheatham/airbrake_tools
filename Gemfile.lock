@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    airbrake_tools (0.0.8)
+    airbrake_tools (0.0.9)
       airbrake-api (>= 4.2.2)
 
 GEM
