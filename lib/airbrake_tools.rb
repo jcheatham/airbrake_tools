@@ -86,11 +86,25 @@ module AirbrakeTools
     def present_line(line)
       color = :gray if $stdout.tty? && !custom_file?(line)
       line = line.sub("[PROJECT_ROOT]/", "")
+      line = add_blame(line)
       if color
         "#{COLORS.fetch(color)}#{line}#{COLORS.fetch(:clear)}"
       else
         line
       end
+    end
+
+    def add_blame(backtrace_line)
+      file, line = backtrace_line.split(":", 2)
+      line = line.to_i
+      if not file.start_with?("/") and line > 0 and File.exist?(".git") and File.exist?(file)
+        result = `git blame #{file} -L #{line},#{line} --show-email -w 2>&1`
+        if $?.success?
+          result.sub!(/ #{line}\) .*/, " )") # cut of source code
+          backtrace_line += " -- #{result.strip}"
+        end
+      end
+      backtrace_line
     end
 
     def grouped_backtraces(notices, options)
