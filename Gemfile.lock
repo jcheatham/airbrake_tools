@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    airbrake_tools (0.0.9)
+    airbrake_tools (0.0.10)
       airbrake-api (>= 4.2.2)
 
 GEM
@@ -13,7 +13,7 @@ GEM
       mash
       multi_xml
       parallel (~> 0.5.0)
-    bump (0.3.5)
+    bump (0.3.8)
     diff-lcs (1.1.3)
     faraday (0.8.4)
       multipart-post (~> 1.1)
@@ -39,6 +39,6 @@ PLATFORMS
 
 DEPENDENCIES
   airbrake_tools!
-  bump
+  bump (= 0.3.8)
   rake
   rspec (~> 2)
