@@ -205,6 +205,7 @@ module AirbrakeTools
         opts.on("-c NUM", "--compare-depth NUM", Integer, "How deep to compare backtraces in summary (default: first line in project + #{DEFAULT_COMPARE_DEPTH_ADDITION})") {|s| options[:compare_depth] = s }
         opts.on("-p NUM", "--pages NUM", Integer, "How maybe pages to iterate over (default: hot:#{DEFAULT_HOT_PAGES} new:#{DEFAULT_NEW_PAGES} summary:#{DEFAULT_SUMMARY_PAGES})") {|s| options[:pages] = s }
         opts.on("-e ENV", "--environment ENV", String, "Only show errors from this environment (default: #{DEFAULT_ENVIRONMENT})") {|s| options[:env] = s }
+        opts.on("--project NAME", String, "Name of project to fetch errors for") {|p| options[:project_id] = project_id(p) }
         opts.on("-h", "--help", "Show this.") { puts opts; exit }
         opts.on("-v", "--version", "Show Version"){ puts "airbrake-tools #{VERSION}"; exit }
       end.parse!(argv)
@@ -224,6 +225,13 @@ module AirbrakeTools
 
     def sparkline(notices, options)
       `#{File.expand_path('../../spark.sh',__FILE__)} #{sparkline_data(notices, options).join(" ")}`.strip
+    end
+
+    def project_id(project_name)
+      @projects ||= AirbrakeAPI.projects
+      project = @projects.detect { |p| p.name == project_name }
+      raise "project with name #{name} not found try #{@projects.map(&:name).join(", ")}" unless project
+      project.id
     end
   end
 end
