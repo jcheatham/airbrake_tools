@@ -124,7 +124,7 @@ module AirbrakeTools
 
     def backtrace(notice)
       return if notice.backtrace.is_a?(String)
-      notice.backtrace.first[1]
+      [*notice.backtrace.first[1]] # can be string or array
     end
 
     def average_first_project_line(backtraces)
