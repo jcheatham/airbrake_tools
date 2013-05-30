@@ -193,4 +193,24 @@ describe "airbrake-tools" do
       AirbrakeTools.send(:select_env, [stub(:rails_env => "production")], {}).size.should == 1
     end
   end
+
+  describe ".project_id" do
+    before do
+      AirbrakeAPI.should_receive(:projects).and_return([stub(:name => "a", :id => 123), stub(:name => "b", :id => 234)])
+    end
+
+    after do
+      AirbrakeTools.instance_variable_set(:@projects, nil) # unset stubs
+    end
+
+    it "returns id for a name" do
+      AirbrakeTools.send(:project_id, "a").should == 123
+    end
+
+    it "raises a nice error when project was not found" do
+       expect{
+         AirbrakeTools.send(:project_id, "c")
+       }.to raise_error(/not found/)
+    end
+  end
 end
