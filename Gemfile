@@ -1,4 +1,4 @@
-source :rubygems
+source 'https://rubygems.org'
 gemspec
 
 gem "bump", "0.3.8"
