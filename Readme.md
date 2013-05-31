@@ -80,6 +80,7 @@ Mysql2::Error: Lost connection to MySQL server during reconnect
 -p, --pages NUM                  How maybe pages to iterate over (default: hot:1 summary:5)
 -c, --compare-depth NUM          At what level to compare backtraces (default: 7)
 -e, --environment ENV            Only show errors from this environment (default: production)
+--project NAME                   Name of project to fetch errors for
 -h, --help                       Show this.
 -v, --version                    Show Version
 ```
