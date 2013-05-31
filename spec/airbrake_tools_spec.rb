@@ -133,8 +133,8 @@ describe "airbrake-tools" do
     end
 
     it "adds blame if file exists" do
-      AirbrakeTools.send(:present_line, "[PROJECT_ROOT]/Gemfile:1 adasdsad").should ==
-        "Gemfile:1 adasdsad -- ^acc8204 (<jcheatham@zendesk.com> 2012-11-06 18:45:10 -0800 )"
+      AirbrakeTools.send(:present_line, "[PROJECT_ROOT]/Gemfile:2 adasdsad").should ==
+        "Gemfile:2 adasdsad -- ^acc8204 (<jcheatham@zendesk.com> 2012-11-06 18:45:10 -0800 )"
     end
 
     it "does not add blame to system files" do
