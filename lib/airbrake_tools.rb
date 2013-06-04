@@ -21,6 +21,8 @@ module AirbrakeTools
       AirbrakeAPI.auth_token = ARGV[1]
       AirbrakeAPI.secure = true
 
+      options[:project_id] = project_id(options.delete(:project_name)) if options[:project_name]
+
       if AirbrakeAPI.account.to_s.empty? || AirbrakeAPI.auth_token.to_s.empty?
         puts "Usage instructions: airbrake-tools --help"
         return 1
@@ -155,7 +157,7 @@ module AirbrakeTools
     def errors_from_pages(options)
       errors = []
       options[:pages].times do |i|
-        errors.concat(AirbrakeAPI.errors(:page => i+1) || [])
+        errors.concat(AirbrakeAPI.errors(:page => i+1, :project_id => options[:project_id]) || [])
       end
       select_env(errors, options)
     end
@@ -205,7 +207,7 @@ module AirbrakeTools
         opts.on("-c NUM", "--compare-depth NUM", Integer, "How deep to compare backtraces in summary (default: first line in project + #{DEFAULT_COMPARE_DEPTH_ADDITION})") {|s| options[:compare_depth] = s }
         opts.on("-p NUM", "--pages NUM", Integer, "How maybe pages to iterate over (default: hot:#{DEFAULT_HOT_PAGES} new:#{DEFAULT_NEW_PAGES} summary:#{DEFAULT_SUMMARY_PAGES})") {|s| options[:pages] = s }
         opts.on("-e ENV", "--environment ENV", String, "Only show errors from this environment (default: #{DEFAULT_ENVIRONMENT})") {|s| options[:env] = s }
-        opts.on("--project NAME", String, "Name of project to fetch errors for") {|p| options[:project_id] = project_id(p) }
+        opts.on("--project NAME", String, "Name of project to fetch errors for") {|p| options[:project_name] = p }
         opts.on("-h", "--help", "Show this.") { puts opts; exit }
         opts.on("-v", "--version", "Show Version"){ puts "airbrake-tools #{VERSION}"; exit }
       end.parse!(argv)
