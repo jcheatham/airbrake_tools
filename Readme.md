@@ -12,7 +12,7 @@ Install
 Usage
 =====
 
-    airbrake_tools your-account your-auth-token
+    airbrake-tools your-account your-auth-token
 
 Output
 ======
