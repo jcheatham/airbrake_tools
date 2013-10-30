@@ -13,6 +13,15 @@ module AirbrakeTools
     :clear => "\e[0m"
   }
 
+  # TODO remove once this is merged + dependency bumped
+  # https://github.com/spagalloco/airbrake-api/pull/33
+  begin
+    old, $VERBOSE = nil, $VERBOSE
+    ::AirbrakeAPI::Client::PER_PAGE = 20
+  ensure
+    $VERBOSE = old
+  end
+
   class << self
     def cli(argv)
       options = extract_options(argv)
