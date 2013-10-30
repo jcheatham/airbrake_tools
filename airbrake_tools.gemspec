@@ -10,5 +10,5 @@ Gem::Specification.new name, AirbrakeTools::VERSION do |s|
   s.files = `git ls-files`.split("\n")
   s.license = "MIT"
   s.executables = ["airbrake-tools"]
-  s.add_runtime_dependency "airbrake-api", ">= 4.2.2"
+  s.add_runtime_dependency "airbrake-api", ">= 4.5.1"
 end
