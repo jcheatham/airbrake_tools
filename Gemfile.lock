@@ -2,13 +2,13 @@ PATH
   remote: .
   specs:
     airbrake_tools (1.0.2)
-      airbrake-api (>= 4.2.2)
+      airbrake-api (>= 4.5.1)
 
 GEM
   remote: https://rubygems.org/
   specs:
-    airbrake-api (4.2.2)
-      faraday_middleware (~> 0.8)
+    airbrake-api (4.5.1)
+      faraday_middleware
       hashie
       mash
       multi_xml
