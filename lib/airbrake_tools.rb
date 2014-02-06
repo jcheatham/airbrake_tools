@@ -216,7 +216,8 @@ module AirbrakeTools
 
     def sparkline_data(notices, options)
       last = notices.last.created_at
-      now = Time.now
+      now = notices.map(&:created_at).push(Time.now).max # adjust now if airbrakes clock is going too fast
+
       Array.new(options[:slots]).each_with_index.map do |_, i|
         slot_end = now - (i * options[:interval])
         slot_start = slot_end - 1 * options[:interval]
