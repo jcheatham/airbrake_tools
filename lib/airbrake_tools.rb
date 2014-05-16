@@ -1,6 +1,7 @@
 # encoding: UTF-8
 require "airbrake_tools/version"
 require "airbrake-api"
+require "launchy"
 
 module AirbrakeTools
   DEFAULT_HOT_PAGES = 1
@@ -37,8 +38,10 @@ module AirbrakeTools
         summary(ARGV[3] || raise("Need error id"), options)
       when "new"
         print_errors(new(options))
+      when "open"
+        open(ARGV[3] || raise("Need error id"), ARGV[4])
       else
-        raise "Unknown command #{ARGV[2].inspect} try hot/new/list/summary"
+        raise "Unknown command #{ARGV[2].inspect} try hot/new/list/summary/open"
       end
       return 0
     end
@@ -81,6 +84,19 @@ module AirbrakeTools
         puts backtrace.map{|line| present_line(line) }
         puts ""
       end
+    end
+
+    def open(error_id, notice_id=nil)
+      error = AirbrakeAPI.error(error_id)
+      raise URI::InvalidURIError if error.nil?
+
+      if notice_id.nil?
+        Launchy.open "https://#{AirbrakeAPI.account}.airbrake.io/projects/#{error.project_id}/groups/#{error_id}"
+      else
+        Launchy.open "https://#{AirbrakeAPI.account}.airbrake.io/projects/#{error.project_id}/groups/#{error_id}/notices/#{notice_id}"
+      end
+    rescue URI::InvalidURIError
+      puts "Error id does not map to any error on Airbrake"
     end
 
     private
@@ -197,6 +213,7 @@ module AirbrakeTools
             hot: list hottest errors
             list: list errors 1-by-1 so you can e.g. grep -> search
             summary: analyze occurrences and backtrace origins
+            open: opens specified error in your default browser
 
             Usage:
                 airbrake-tools subdomain auth-token command [options]
