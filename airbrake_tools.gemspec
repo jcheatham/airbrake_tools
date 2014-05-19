@@ -8,6 +8,7 @@ Gem::Specification.new name, AirbrakeTools::VERSION do |s|
   s.email = "coaxis@gmail.com"
   s.homepage = "http://github.com/jcheatham/#{name}"
   s.files = `git ls-files`.split("\n")
+  s.bindir = 'bin'
   s.license = "MIT"
   s.executables = ["airbrake-tools"]
   s.add_runtime_dependency "airbrake-api", ">= 4.5.1"
