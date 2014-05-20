@@ -6,7 +6,7 @@ require "launchy"
 module AirbrakeTools
   DEFAULT_HOT_PAGES = 1
   DEFAULT_NEW_PAGES = 1
-  DEFAULT_SUMMARY_PAGES = 5
+  DEFAULT_SUMMARY_PAGES = 10
   DEFAULT_COMPARE_DEPTH_ADDITION = 3 # first line in project is 6 -> compare at 6 + x depth
   DEFAULT_ENVIRONMENT = "production"
   COLORS = {
@@ -64,7 +64,7 @@ module AirbrakeTools
 
     def list(options)
       page = 1
-      while errors = AirbrakeAPI.errors(:page => page)
+      while errors = AirbrakeAPI.errors(:page => page) and page <= DEFAULT_SUMMARY_PAGES
         select_env(errors, options).each do |error|
           puts "#{error.id} -- #{error.error_class} -- #{error.error_message} -- #{error.created_at}"
         end
