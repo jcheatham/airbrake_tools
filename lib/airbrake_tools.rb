@@ -6,11 +6,13 @@ require "launchy"
 module AirbrakeTools
   DEFAULT_HOT_PAGES = 1
   DEFAULT_NEW_PAGES = 1
-  DEFAULT_SUMMARY_PAGES = 5
+  DEFAULT_SUMMARY_PAGES = 10
   DEFAULT_COMPARE_DEPTH_ADDITION = 3 # first line in project is 6 -> compare at 6 + x depth
   DEFAULT_ENVIRONMENT = "production"
   COLORS = {
     :gray => "\e[0;37m",
+    :green => "\e[0;32m",
+    :bold_white => "\e[1;37m",
     :clear => "\e[0m"
   }
 
@@ -62,7 +64,7 @@ module AirbrakeTools
 
     def list(options)
       page = 1
-      while errors = AirbrakeAPI.errors(:page => page)
+      while errors = AirbrakeAPI.errors(:page => page) and page <= DEFAULT_SUMMARY_PAGES
         select_env(errors, options).each do |error|
           puts "#{error.id} -- #{error.error_class} -- #{error.error_message} -- #{error.created_at}"
         end
@@ -105,11 +107,8 @@ module AirbrakeTools
       color = :gray if $stdout.tty? && !custom_file?(line)
       line = line.sub("[PROJECT_ROOT]/", "")
       line = add_blame(line)
-      if color
-        "#{COLORS.fetch(color)}#{line}#{COLORS.fetch(:clear)}"
-      else
-        line
-      end
+
+      color ? color_text(line, color) : line
     end
 
     def add_blame(backtrace_line)
@@ -184,7 +183,9 @@ module AirbrakeTools
 
     def print_errors(hot)
       hot.each_with_index do |(error, notices, rate, deviance), index|
-        puts "\n##{(index+1).to_s.ljust(2)} #{rate.round(2).to_s.rjust(6)}/hour total:#{error.notices_count.to_s.ljust(8)} #{sparkline(notices, :slots => 60, :interval => 60).ljust(61)} -- #{hot_summary(error)}"
+        spark = sparkline(notices, :slots => 60, :interval => 60)
+        puts "\n##{(index+1).to_s.ljust(2)} #{rate.round(2).to_s.rjust(6)}/hour total:#{error.notices_count.to_s.ljust(8)} #{color_text(spark.ljust(61), :green)}"
+        puts hot_summary(error)
       end
     end
 
@@ -201,7 +202,11 @@ module AirbrakeTools
     end
 
     def hot_summary(error)
-      "id:#{error.id} -- first:#{error.created_at} -- #{error.error_class} -- #{error.error_message}"
+      "id: #{color_text(error.id, :bold_white)} -- first: #{color_text(error.created_at, :bold_white)} -- #{error.error_message}"
+    end
+
+    def color_text(text, color)
+      "#{COLORS[color]}#{text}#{COLORS[:clear]}"
     end
 
     def extract_options(argv)

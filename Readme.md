@@ -85,6 +85,11 @@ Mysql2::Error: Lost connection to MySQL server during reconnect
 -v, --version                    Show Version
 ```
 
+Development
+======
+In order for the specs to run, you need to copy `spec/fixtures.example.yml` to
+`spec/features.yml` and edit to add your credentials.
+
 Author
 ======
 [Jonathan Cheatham](http://github.com/jcheatham)<br/>
