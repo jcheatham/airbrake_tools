@@ -60,7 +60,7 @@ describe "airbrake-tools" do
 
     describe "summary" do
       it "kinda works" do
-        output = airbrake_tools("#{config["subdomain"]} #{config["auth_token"]} summary 51344729")
+        output = airbrake_tools("#{config["subdomain"]} #{config["auth_token"]} summary #{config["summary_error_id"]} -p 1")
         output.should include("last retrieved notice: ")
         output.should include("last 2 hours: ")
       end

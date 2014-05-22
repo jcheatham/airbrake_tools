@@ -165,6 +165,8 @@ module AirbrakeTools
           [error, notices, frequency(notices, pages * AirbrakeAPI::Client::PER_PAGE)]
         rescue Faraday::Error::ParsingError
           $stderr.puts "Ignoring #{hot_summary(error)}, got 500 from http://#{AirbrakeAPI.account}.airbrake.io/errors/#{error.id}"
+        rescue Exception => e
+          puts "Ignoring exception <<#{e}>>, most likely bad data from airbrake"
         end
       end.compact
     end
