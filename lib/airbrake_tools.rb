@@ -12,7 +12,7 @@ module AirbrakeTools
   COLORS = {
     :gray => "\e[0;37m",
     :green => "\e[0;32m",
-    :bold_white => "\e[1;37m",
+    :bold => "\e[1m",
     :clear => "\e[0m"
   }
 
@@ -204,7 +204,7 @@ module AirbrakeTools
     end
 
     def hot_summary(error)
-      "id: #{color_text(error.id, :bold_white)} -- first: #{color_text(error.created_at, :bold_white)} -- #{error.error_message}"
+      "id: #{color_text(error.id, :bold)} -- first: #{color_text(error.created_at, :bold)} -- #{error.error_message}"
     end
 
     def color_text(text, color)
