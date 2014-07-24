@@ -15,6 +15,7 @@ module AirbrakeTools
     :bold => "\e[1m",
     :clear => "\e[0m"
   }
+  HOUR = 60*60
 
   class << self
     def cli(argv)
@@ -194,13 +195,13 @@ module AirbrakeTools
     # we only have a limited sample size, so we do not know how many errors occurred in total
     def frequency(notices, expected_notices)
       return 0 if notices.empty?
-      range = if notices.size < expected_notices
-        60 * 60 # we got less notices then we wanted -> very few errors -> low frequency
+      range = if notices.size < expected_notices && notices.last.created_at > (Time.now - HOUR)
+        HOUR # we got less notices then we wanted -> very few errors -> low frequency
       else
         Time.now - notices.map{ |n| n.created_at }.min
       end
       errors_per_second = notices.size / range.to_f
-      (errors_per_second * 60 * 60).round(2) # errors_per_hour
+      (errors_per_second * HOUR).round(2) # errors_per_hour
     end
 
     def hot_summary(error)

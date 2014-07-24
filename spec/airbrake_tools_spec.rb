@@ -178,6 +178,10 @@ describe "airbrake-tools" do
     it "calculates low if notices are smaller then expected notices" do
       AirbrakeTools.send(:frequency, [stub(:created_at => Time.now)], 10).should == 1
     end
+
+    it "calculates correct if notices are smaller then expected notices but old" do
+      AirbrakeTools.send(:frequency, [stub(:created_at => (Time.now - 2 * 60 * 60))], 10).should == 0.5
+    end
   end
 
   describe ".select_env" do
