@@ -64,8 +64,9 @@ module AirbrakeTools
     end
 
     def list(options)
+      list_pages = options[:pages] ? options[:pages] : DEFAULT_SUMMARY_PAGES
       page = 1
-      while errors = AirbrakeAPI.errors(:page => page) and page <= DEFAULT_SUMMARY_PAGES
+      while errors = AirbrakeAPI.errors(page: page) and page <= list_pages
         select_env(errors, options).each do |error|
           puts "#{error.id} -- #{error.error_class} -- #{error.error_message} -- #{error.created_at}"
         end
@@ -161,7 +162,7 @@ module AirbrakeTools
       Parallel.map(errors, :in_threads => 10) do |error|
         begin
           pages = 1
-          notices = AirbrakeAPI.notices(error.id, :pages => pages, :raw => true).compact
+          notices = AirbrakeAPI.notices(error.id, pages: pages, raw: true).compact
           print "."
           [error, notices, frequency(notices, pages * AirbrakeAPI::Client::PER_PAGE)]
         rescue Faraday::Error::ParsingError
