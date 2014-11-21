@@ -52,12 +52,12 @@ module AirbrakeTools
 
     def hot(options = {})
       errors = errors_with_notices({:pages => DEFAULT_HOT_PAGES}.merge(options))
-      errors.sort_by{|e,n,f| f }.reverse
+      errors.sort_by{|_,_,f| f }.reverse
     end
 
     def new(options = {})
       errors = errors_with_notices({:pages => DEFAULT_NEW_PAGES}.merge(options))
-      errors.sort_by{|e,n,f| e.created_at }.reverse
+      errors.sort_by{|e,_,_| e.created_at }.reverse
     end
 
     def errors_with_notices(options)
@@ -65,9 +65,9 @@ module AirbrakeTools
     end
 
     def list(options)
-      list_pages = options[:pages] ? options[:pages] : DEFAULT_LIST_PAGES
+      list_pages = (options[:pages] ? options[:pages] : DEFAULT_LIST_PAGES)
       page = 1
-      while errors = AirbrakeAPI.errors(page: page) and page <= list_pages
+      while page <= list_pages && errors = AirbrakeAPI.errors(page: page)
         select_env(errors, options).each do |error|
           puts "#{error.id} -- #{error.error_class} -- #{error.error_message} -- #{error.created_at}"
         end
@@ -187,7 +187,7 @@ module AirbrakeTools
     end
 
     def print_errors(hot)
-      hot.each_with_index do |(error, notices, rate, deviance), index|
+      hot.each_with_index do |(error, notices, rate), index|
         spark = sparkline(notices, :slots => 60, :interval => 60)
         puts "\n##{(index+1).to_s.ljust(2)} #{rate.round(2).to_s.rjust(6)}/hour total:#{error.notices_count.to_s.ljust(8)} #{color_text(spark.ljust(61), :green)}"
         puts hot_summary(error)
