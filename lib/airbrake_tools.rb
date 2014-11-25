@@ -1,7 +1,5 @@
-# encoding: UTF-8
 require "airbrake_tools/version"
 require "airbrake-api"
-require "launchy"
 
 module AirbrakeTools
   DEFAULT_HOT_PAGES = 1
@@ -96,14 +94,13 @@ module AirbrakeTools
     end
 
     def open(error_id, notice_id=nil)
+      require "launchy"
       error = AirbrakeAPI.error(error_id)
       raise URI::InvalidURIError if error.nil?
 
-      if notice_id.nil?
-        Launchy.open "https://#{AirbrakeAPI.account}.airbrake.io/projects/#{error.project_id}/groups/#{error_id}"
-      else
-        Launchy.open "https://#{AirbrakeAPI.account}.airbrake.io/projects/#{error.project_id}/groups/#{error_id}/notices/#{notice_id}"
-      end
+      url = "https://#{AirbrakeAPI.account}.airbrake.io/projects/#{error.project_id}/groups/#{error_id}"
+      url += "/notices/#{notice_id}" if notice_id
+      Launchy.open url
     rescue URI::InvalidURIError
       puts "Error id does not map to any error on Airbrake"
     end
