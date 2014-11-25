@@ -51,11 +51,14 @@ module AirbrakeTools
     end
 
     def hot(options = {})
-      errors = errors_with_notices({:pages => DEFAULT_HOT_PAGES}.merge(options))
-      errors.sort_by{|_,_,f| f }.reverse
+      errors = Array(options[:project_id] || projects.map(&:id)).flat_map do |project_id|
+        errors_with_notices({pages: DEFAULT_HOT_PAGES, project_id: project_id}.merge(options))
+      end
+      errors.sort_by{|_,_,f| f }.reverse[0...AirbrakeAPI::Client::PER_PAGE]
     end
 
     def new(options = {})
+      need_project_id!(options)
       errors = errors_with_notices({:pages => DEFAULT_NEW_PAGES}.merge(options))
       errors.sort_by{|e,_,_| e.created_at }.reverse
     end
@@ -65,9 +68,10 @@ module AirbrakeTools
     end
 
     def list(options)
+      need_project_id!(options)
       list_pages = (options[:pages] ? options[:pages] : DEFAULT_LIST_PAGES)
       page = 1
-      while page <= list_pages && errors = AirbrakeAPI.errors(page: page)
+      while page <= list_pages && errors = AirbrakeAPI.errors(page: page, project_id: options.fetch(:project_id))
         select_env(errors, options).each do |error|
           puts "#{error.id} -- #{error.error_class} -- #{error.error_message} -- #{error.created_at}"
         end
@@ -105,6 +109,10 @@ module AirbrakeTools
     end
 
     private
+
+    def need_project_id!(options)
+      raise "Need a project_id" unless options[:project_id]
+    end
 
     def present_line(line)
       color = :gray if $stdout.tty? && !custom_file?(line)
@@ -234,7 +242,7 @@ module AirbrakeTools
         opts.on("-c NUM", "--compare-depth NUM", Integer, "How deep to compare backtraces in summary (default: first line in project + #{DEFAULT_COMPARE_DEPTH_ADDITION})") {|s| options[:compare_depth] = s }
         opts.on("-p NUM", "--pages NUM", Integer, "How maybe pages to iterate over (default: hot:#{DEFAULT_HOT_PAGES} new:#{DEFAULT_NEW_PAGES} summary:#{DEFAULT_SUMMARY_PAGES})") {|s| options[:pages] = s }
         opts.on("-e ENV", "--environment ENV", String, "Only show errors from this environment (default: #{DEFAULT_ENVIRONMENT})") {|s| options[:env] = s }
-        opts.on("--project NAME", String, "Name of project to fetch errors for") {|p| options[:project_name] = p }
+        opts.on("--project NAME_OR_ID", String, "Name of project to fetch errors for") {|p| options[:project_name] = p }
         opts.on("-h", "--help", "Show this.") { puts opts; exit }
         opts.on("-v", "--version", "Show Version"){ puts "airbrake-tools #{VERSION}"; exit }
       end.parse!(argv)
@@ -257,10 +265,14 @@ module AirbrakeTools
       `#{File.expand_path('../../spark.sh',__FILE__)} #{sparkline_data(notices, options).join(" ")}`.strip
     end
 
-    def project_id(project_name)
+    def projects
       @projects ||= AirbrakeAPI.projects
-      project = @projects.detect { |p| p.name == project_name }
-      raise "project with name #{name} not found try #{@projects.map(&:name).join(", ")}" unless project
+    end
+
+    def project_id(project_name)
+      return project_name.to_i if project_name =~ /^\d+$/
+      project = projects.detect { |p| p.name == project_name }
+      raise "project with name #{project_name} not found try #{projects.map(&:name).join(", ")}" unless project
       project.id
     end
   end

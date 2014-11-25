@@ -39,7 +39,7 @@ Shows all errors divided by pages
  - "fix all errors on page x"
 
 ```
- airbrake-tools your-account your-auth-token list | grep 'is suspended'
+ airbrake-tools your-account your-auth-token list --project 12345 | grep 'is suspended'
  Page 1 ----------
  54054554 -- ActiveRecord::RecordInvalid -- ActiveRecord::RecordInvalid: Validation failed: Requester is suspended.
  Page 2 ----------
