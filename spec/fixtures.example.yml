@@ -1,3 +1,4 @@
 subdomain: xxx
 auth_token: yyy # NOT THE API KEY <-> got to airbrake, click on settings, copy auth_token
 summary_error_id: zzz # some valid error ID from airbrake to test summary functionality
+project_id: aaa # some valid project ID from airbrake to test new/list functionality
