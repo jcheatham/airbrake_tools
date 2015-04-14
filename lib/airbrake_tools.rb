@@ -97,7 +97,7 @@ module AirbrakeTools
         notices.each do |notice|
           # Print each set of parameters with a stable output order.
           h = notice.request.params.to_hash
-          puts "{" + h.sort.map{|k,v| "#{k.inspect}=>#{v.inspect}"}.join(", ") + "}" unless h.nil?
+          puts "#{notice.uuid.inspect}=>{" + h.sort.map{|k,v| "#{k.inspect}=>#{v.inspect}"}.join(", ") + "}" unless h.nil?
         end
       end
     end
