@@ -91,6 +91,15 @@ module AirbrakeTools
         puts backtrace.map{|line| present_line(line) }
         puts ""
       end
+
+      if options[:params]
+        puts "Parameters:"
+        notices.each do |notice|
+          # Print each set of parameters with a stable output order.
+          h = notice.request.params.to_hash
+          puts "{" + h.sort.map{|k,v| "#{k.inspect}=>#{v.inspect}"}.join(", ") + "}" unless h.nil?
+        end
+      end
     end
 
     def open(error_id, notice_id=nil)
@@ -242,6 +251,7 @@ module AirbrakeTools
         opts.on("--project NAME_OR_ID", String, "Name of project to fetch errors for") {|p| options[:project_name] = p }
         opts.on("-h", "--help", "Show this.") { puts opts; exit }
         opts.on("-v", "--version", "Show Version"){ puts "airbrake-tools #{VERSION}"; exit }
+        opts.on("--params", "Show params for summary.") { options[:params] = true }
       end.parse!(argv)
       options
     end
