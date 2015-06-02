@@ -1,5 +1,9 @@
 require "airbrake_tools/version"
-require "airbrake-api"
+require "json"
+require "ostruct"
+require "net/http"
+require "net/https"
+require "time"
 
 module AirbrakeTools
   DEFAULT_HOT_PAGES = 1
@@ -20,16 +24,14 @@ module AirbrakeTools
     def cli(argv)
       options = extract_options(argv)
 
-      AirbrakeAPI.account = ARGV[0]
-      AirbrakeAPI.auth_token = ARGV[1]
-      AirbrakeAPI.secure = true
-
-      options[:project_id] = project_id(options.delete(:project_name)) if options[:project_name]
-
-      if AirbrakeAPI.account.to_s.empty? || AirbrakeAPI.auth_token.to_s.empty?
+      # TODO get rid of argument 0
+      @token = ARGV[1]
+      if @token.to_s.empty?
         puts "Usage instructions: airbrake-tools --help"
         return 1
       end
+
+      options[:project_id] = project_id(options.delete(:project_name)) if options[:project_name]
 
       case ARGV[2]
       when "hot"
@@ -69,8 +71,8 @@ module AirbrakeTools
       need_project_id!(options)
       list_pages = (options[:pages] ? options[:pages] : DEFAULT_LIST_PAGES)
       page = 1
-      while page <= list_pages && errors = AirbrakeAPI.errors(page: page, project_id: options.fetch(:project_id))
-        select_env(errors, options).each do |error|
+      while page <= list_pages && errors = airbrake_errors(options.fetch(:project_id), page, options)
+        errors.each do |error|
           puts "#{error.id} -- #{error.error_class} -- #{error.error_message} -- #{error.created_at}"
         end
         $stderr.puts "Page #{page} ----------\n"
@@ -79,7 +81,7 @@ module AirbrakeTools
     end
 
     def summary(error_id, options)
-      notices = AirbrakeAPI.notices(error_id, :pages => options[:pages] || DEFAULT_SUMMARY_PAGES)
+      notices = notices_from_pages(options.fetch(:project_id), error_id, options[:pages] || DEFAULT_SUMMARY_PAGES)
 
       puts "last retrieved notice: #{((Time.now - notices.last.created_at) / (60 * 60)).round} hours ago at #{notices.last.created_at}"
       puts "last 2 hours:  #{sparkline(notices, :slots => 60, :interval => 120)}"
@@ -143,23 +145,18 @@ module AirbrakeTools
     end
 
     def grouped_backtraces(notices, options)
-      notices = notices.compact.select { |n| backtrace(n) }
+      notices = notices.compact.select { |n| n.backtrace.any? }
 
       compare_depth = if options[:compare_depth]
         options[:compare_depth]
       else
-        average_first_project_line(notices.map { |n| backtrace(n) }) +
+        average_first_project_line(notices.map { |n| n.backtrace }) +
           DEFAULT_COMPARE_DEPTH_ADDITION
       end
 
       notices.group_by do |notice|
-        backtrace(notice)[0..compare_depth]
+        notice.backtrace[0..compare_depth]
       end
-    end
-
-    def backtrace(notice)
-      return if notice.backtrace.is_a?(String)
-      [*notice.backtrace.first[1]] # can be string or array
     end
 
     def average_first_project_line(backtraces)
@@ -178,7 +175,7 @@ module AirbrakeTools
       Parallel.map(errors, :in_threads => 10) do |error|
         begin
           pages = 1
-          notices = AirbrakeAPI.notices(error.id, pages: pages, raw: true).compact
+          notices = airbrake_notices(error.id, pages: pages, raw: true).compact
           print "."
           [error, notices, frequency(notices, pages * AirbrakeAPI::Client::PER_PAGE)]
         rescue Faraday::Error::ParsingError
@@ -192,13 +189,17 @@ module AirbrakeTools
     def errors_from_pages(options)
       errors = []
       options[:pages].times do |i|
-        errors.concat(AirbrakeAPI.errors(:page => i+1, :project_id => options[:project_id]) || [])
+        errors.concat(airbrake_errors(options[:project_id], i+1, options))
       end
-      select_env(errors, options)
+      errors
     end
 
-    def select_env(errors, options)
-      errors.select{|e| e.rails_env == (options[:env] || DEFAULT_ENVIRONMENT) }
+    def notices_from_pages(project_id, error_id, pages)
+      notices = []
+      pages.times do |i|
+        notices.concat(airbrake_notices(project_id, error_id, i+1))
+      end
+      notices
     end
 
     def print_errors(hot)
@@ -273,15 +274,77 @@ module AirbrakeTools
       `#{File.expand_path('../../spark.sh',__FILE__)} #{sparkline_data(notices, options).join(" ")}`.strip
     end
 
-    def projects
-      @projects ||= AirbrakeAPI.projects
-    end
-
     def project_id(project_name)
       return project_name.to_i if project_name =~ /^\d+$/
       project = projects.detect { |p| p.name == project_name }
       raise "project with name #{project_name} not found try #{projects.map(&:name).join(", ")}" unless project
       project.id
+    end
+
+    def projects
+      @projects ||= begin
+        response = make_request("https://airbrake.io/api/v3/projects?key=#{@token}")
+        case response.code.to_i
+        when 200..299
+          JSON.parse(response.body)["projects"].compact.map do |raw|
+            OpenStruct.new(
+              :id   => raw["id"].to_s,
+              :name => raw["name"]
+            )
+          end.sort_by{|p| p[:name].to_s.downcase }
+        else
+          raise "ERROR - Bad response for http://airbrake.io/api/v3/projects - #{response.code} - #{response.message}"
+        end
+      end
+    end
+
+    def airbrake_errors(project_id, page, options)
+      response = make_request("https://airbrake.io/api/v3/projects/#{project_id}/groups?key=#{@token}&page=#{page}&environment=#{options[:env] || DEFAULT_ENVIRONMENT}")
+      case response.code.to_i
+      when 200..299
+        JSON.parse(response.body)["groups"].compact.map do |raw|
+          OpenStruct.new(
+            :id            => raw["id"].to_s,
+            :project_id    => raw["projectId"].to_s,
+            :env           => raw["environment"],
+            :count         => raw["noticeCount"],
+            :created_at    => Time.parse(raw["createdAt"]),
+            :most_recent   => Time.parse(raw["lastNoticeAt"]),
+            :error_message => raw["errors"][0]["message"].to_s,
+            :error_class   => raw["errors"][0]["type"].to_s
+          )
+        end
+      else
+        puts "ERROR - Bad response for http://airbrake.io/api/v3/projects/#{project_id}/groups - #{response.code} - #{response.message}"
+      end
+    end
+
+    def airbrake_notices(project_id, error_id, page=1)
+      response = make_request("https://airbrake.io/api/v3/projects/#{project_id}/groups/#{error_id}/notices?key=#{@token}&page=#{page}")
+      case response.code.to_i
+      when 200..299
+        JSON.parse(response.body)["notices"].compact.map do |raw|
+          OpenStruct.new(
+            :id            => raw["id"].to_s,
+            :created_at    => Time.parse(raw["createdAt"]),
+            :message       => raw["errors"][0]["message"].to_s,
+            :backtrace     => (raw["errors"].first['backtrace'] || []).map { |l| "#{l["file"]}:#{l["line"]}" }
+          )
+        end
+      else
+        raise "ERROR - Bad response for http://airbrake.io/api/v3/projects/#{project_id}/groups/#{error_id}/notices - #{response.code} - #{response.message}"
+      end
+    end
+
+    def make_request(url)
+      # stolen from https://github.com/bf4/airbrake_client/blob/master/airbrake_client.rb
+      uri = URI(url)
+      http = Net::HTTP.new(uri.host, uri.port)
+      if http.use_ssl = (uri.scheme == 'https')
+        http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+      end
+      request = Net::HTTP::Get.new(uri.request_uri)
+      http.request(request)
     end
   end
 end
