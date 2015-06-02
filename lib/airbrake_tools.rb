@@ -4,14 +4,16 @@ require "ostruct"
 require "net/http"
 require "net/https"
 require "time"
+require "parallel"
 
 module AirbrakeTools
   DEFAULT_HOT_PAGES = 1
   DEFAULT_NEW_PAGES = 1
-  DEFAULT_LIST_PAGES = 10
-  DEFAULT_SUMMARY_PAGES = 10
+  DEFAULT_LIST_PAGES = 1 # TODO 10 once pagination is not broken :/
+  DEFAULT_SUMMARY_PAGES = 1 # TODO 10 once pagination is not broken :/
   DEFAULT_COMPARE_DEPTH_ADDITION = 3 # first line in project is 6 -> compare at 6 + x depth
   DEFAULT_ENVIRONMENT = "production"
+  PER_PAGE = 20
   COLORS = {
     :gray => "\e[0;37m",
     :green => "\e[0;32m",
@@ -54,7 +56,7 @@ module AirbrakeTools
       errors = Array(options[:project_id] || projects.map(&:id)).flat_map do |project_id|
         errors_with_notices({pages: DEFAULT_HOT_PAGES, project_id: project_id}.merge(options))
       end
-      errors.sort_by{|_,_,f| f }.reverse[0...AirbrakeAPI::Client::PER_PAGE]
+      errors.sort_by{|_,_,f| f }.reverse[0...PER_PAGE]
     end
 
     def new(options = {})
@@ -64,7 +66,7 @@ module AirbrakeTools
     end
 
     def errors_with_notices(options)
-      add_notices_to_pages(errors_from_pages(options))
+      add_notices_to_pages(options.fetch(:project_id), errors_from_pages(options))
     end
 
     def list(options)
@@ -171,15 +173,13 @@ module AirbrakeTools
       line.start_with?("[PROJECT_ROOT]") && !line.start_with?("[PROJECT_ROOT]/vendor/")
     end
 
-    def add_notices_to_pages(errors)
+    def add_notices_to_pages(project_id, errors)
       Parallel.map(errors, :in_threads => 10) do |error|
         begin
           pages = 1
-          notices = airbrake_notices(error.id, pages: pages, raw: true).compact
+          notices = notices_from_pages(project_id, error.id, pages).compact
           print "."
-          [error, notices, frequency(notices, pages * AirbrakeAPI::Client::PER_PAGE)]
-        rescue Faraday::Error::ParsingError
-          $stderr.puts "Ignoring #{hot_summary(error)}, got 500 from http://#{AirbrakeAPI.account}.airbrake.io/errors/#{error.id}"
+          [error, notices, frequency(notices, pages * PER_PAGE)]
         rescue Exception => e
           puts "Ignoring exception <<#{e}>>, most likely bad data from airbrake"
         end
@@ -299,7 +299,7 @@ module AirbrakeTools
     end
 
     def airbrake_errors(project_id, page, options)
-      response = make_request("https://airbrake.io/api/v3/projects/#{project_id}/groups?key=#{@token}&page=#{page}&environment=#{options[:env] || DEFAULT_ENVIRONMENT}")
+      response = make_request("https://airbrake.io/api/v3/projects/#{project_id}/groups?key=#{@token}&page=#{page}&environment=#{options[:env] || DEFAULT_ENVIRONMENT}&resolved=false")
       case response.code.to_i
       when 200..299
         JSON.parse(response.body)["groups"].compact.map do |raw|

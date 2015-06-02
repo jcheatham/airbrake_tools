@@ -12,4 +12,5 @@ Gem::Specification.new name, AirbrakeTools::VERSION do |s|
   s.license = "MIT"
   s.executables = ["airbrake-tools"]
   s.add_runtime_dependency "json"
+  s.add_runtime_dependency "parallel"
 end
