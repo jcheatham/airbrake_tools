@@ -327,8 +327,10 @@ module AirbrakeTools
           OpenStruct.new(
             :id            => raw["id"].to_s,
             :created_at    => Time.parse(raw["createdAt"]),
-            :message       => raw["errors"][0]["message"].to_s,
-            :backtrace     => (raw["errors"].first['backtrace'] || []).map { |l| "#{l["file"]}:#{l["line"]}" }
+            :error_message => raw["errors"][0]["message"].to_s,
+            :backtrace     => (raw["errors"].first['backtrace'] || []).
+              map { |l| "#{l["file"]}:#{l["line"]}" }.
+              reject { |l| l.start_with?("[GEM_ROOT]/gems/newrelic_rpm-") }
           )
         end
       else
