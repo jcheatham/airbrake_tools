@@ -100,9 +100,8 @@ module AirbrakeTools
         puts "Parameters:"
         notices.each do |notice|
           # Print each set of parameters with a stable output order.
-          params = notice.request.params || {}
-          ordered_params = params.sort.map{|k,v| "#{k.inspect}=>#{v.inspect}"}.join(", ")
-          puts "#{notice.uuid.inspect}=>{#{ordered_params}}"
+          ordered_params = notice.params.sort.map{|k,v| "#{k.inspect}=>#{v.inspect}"}.join(", ")
+          puts "#{notice.id}=>{#{ordered_params}}"
         end
       end
     end
@@ -327,8 +326,11 @@ module AirbrakeTools
           OpenStruct.new(
             :id            => raw["id"].to_s,
             :created_at    => Time.parse(raw["createdAt"]),
-            :message       => raw["errors"][0]["message"].to_s,
-            :backtrace     => (raw["errors"].first['backtrace'] || []).map { |l| "#{l["file"]}:#{l["line"]}" }
+            :error_message => raw["errors"][0]["message"].to_s,
+            :backtrace     => (raw["errors"].first['backtrace'] || []).
+              map { |l| "#{l["file"]}:#{l["line"]}" }.
+              reject { |l| l.start_with?("[GEM_ROOT]/gems/newrelic_rpm-") },
+            :params        => raw["params"]
           )
         end
       else
